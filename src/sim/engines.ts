@@ -630,6 +630,18 @@ export class GeopoliticalOmegaEngine {
       const playerSharesOwned = state.player.assets.stocks[corp.ticker] || 0;
       const playerPercentOwned = playerSharesOwned / corp.sharesOutstanding;
 
+      // Safeguard: Ensure board contains at least 3 elements to avoid crash when writing to corp.board[1] or corp.board[2]
+      if (!corp.board) {
+        corp.board = [];
+      }
+      while (corp.board.length < 3) {
+        const fallbackNames = ['Seat Alpha', 'Seat Beta', 'Seat Gamma'];
+        corp.board.push({
+          name: fallbackNames[corp.board.length] || `Seat ${corp.board.length + 1}`,
+          owner: 'Founders'
+        });
+      }
+
       if (playerPercentOwned >= 0.51) {
         corp.board[0].owner = 'Dynasty Control';
         corp.board[1].owner = 'Dynasty Control';

@@ -138,13 +138,15 @@ export default function App() {
   // System ticking interval loop
   useEffect(() => {
     if (loopRef.current) clearInterval(loopRef.current);
-    if (isPaused || !gameState) return;
+    if (isPaused) return;
 
     const intervalTime = 1000 / speedMultiplier;
     loopRef.current = setInterval(() => {
       setGameState((prev) => {
         if (!prev) return null;
-        const nextState = GeopoliticalOmegaEngine.tick({ ...prev });
+        // Deep clone state to ensure perfect React rendering lifecycle sync and prevent nested mutation artifacts
+        const clonedState = JSON.parse(JSON.stringify(prev)) as SimState;
+        const nextState = GeopoliticalOmegaEngine.tick(clonedState);
         
         // Check for stage progression celebration
         if (nextState.careerStage !== prevStage) {
@@ -168,7 +170,7 @@ export default function App() {
     return () => {
       if (loopRef.current) clearInterval(loopRef.current);
     };
-  }, [isPaused, speedMultiplier, gameState?.currentTick, prevStage]);
+  }, [isPaused, speedMultiplier, prevStage]);
 
   if (!gameState) {
     return (

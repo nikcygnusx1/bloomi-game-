@@ -10,7 +10,7 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
-export const playSyntheticSound = (type: 'tick' | 'order' | 'profit' | 'warning' | 'liquidation') => {
+export const playSyntheticSound = (type: 'tick' | 'order' | 'profit' | 'warning' | 'liquidation' | 'click' | 'alert' | 'success') => {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -20,6 +20,13 @@ export const playSyntheticSound = (type: 'tick' | 'order' | 'profit' | 'warning'
       ctx.resume();
     }
 
+    // Map compatible aliases
+    let resolvedType: 'tick' | 'order' | 'profit' | 'warning' | 'liquidation' = 'tick';
+    if (type === 'click') resolvedType = 'tick';
+    else if (type === 'alert') resolvedType = 'warning';
+    else if (type === 'success') resolvedType = 'profit';
+    else resolvedType = type;
+
     const now = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -27,7 +34,7 @@ export const playSyntheticSound = (type: 'tick' | 'order' | 'profit' | 'warning'
     osc.connect(gain);
     gain.connect(ctx.destination);
 
-    switch (type) {
+    switch (resolvedType) {
       case 'tick': {
         // Light, subtle terminal clicking sound
         osc.type = 'sine';

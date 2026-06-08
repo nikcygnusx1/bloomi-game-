@@ -235,7 +235,11 @@ export function createInitialWorld(params: {
       revenue: 50000000,
       expenses: 40000000,
       profit: 10000000,
-      board: [{ name: 'Seat Alfa', owner: 'Founders' }],
+      board: [
+        { name: 'Seat Alfa', owner: 'Founders' },
+        { name: 'Seat Beta', owner: 'Institutional Holdings' },
+        { name: 'Seat Gamma', owner: 'Retail Cascade' }
+      ],
       shareholders: { 'retail_public': 500000000 },
       layoffsPercentage: 0
     });

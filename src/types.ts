@@ -273,6 +273,7 @@ export interface SimState {
   omegaActiveAttacks: string[]; // active attacks like "synthetic_news", "liquidity_traps", "satellite_spoof", "cyber_grid"
   commodityExchangesLocked: boolean; // if OMEGA locked down commodity tickers
   contrabandLevel: number; // heat related to illegal sovereign weaponization
-  satelliteCoordinates: { name: string; x: number; y: number }[]; // coordinates on physical map
+  satelliteCoordinates: { id?: string; name: string; x: number; y: number }[]; // coordinates on physical map
   capitalFlowBeams: { fromId: string; toId: string; strength: number }[]; // capital beams coordinates for SVG canvas
+  activeBots?: { sigmaHunter?: boolean; cdsReaper?: boolean; scytheArbitrage?: boolean; [key: string]: any };
 }
