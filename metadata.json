@@ -1,0 +1,6 @@
+{
+  "name": "Global Sovereign Terminal",
+  "description": "Real-time global corporate, sovereign debt, and geopolitical influence tracking terminal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

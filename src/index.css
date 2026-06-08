@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Fira+Code:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "JetBrains Mono", "Fira Code", monospace;
+  --font-display: "JetBrains Mono", "Fira Code", monospace;
+  --font-mono: "Fira Code", "JetBrains Mono", monospace;
+
+  /* Strict Bloomberg Terminal Colors */
+  --color-noir-950: #000000;
+  --color-noir-900: #000000;
+  --color-noir-800: #000000;
+  --color-noir-700: #000000;
+  --color-terminal-amber: #FFB000;
+  --color-terminal-amber-dim: #FFB000;
+  --color-terminal-green: #00FF00;
+  --color-terminal-green-dim: rgba(0, 255, 0, 0.2);
+  --color-terminal-red: #FF0000;
+  --color-terminal-blue: #FFFFFF;
+}
+
+/* Base custom styles for Bloomberg Professional UI */
+* {
+  border-radius: 0px !important;
+  text-transform: uppercase !important;
+}
+
+body {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+  font-family: "JetBrains Mono", "Courier New", monospace !important;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  font-size: 11px;
+}
+
+/* Absolute Bloomberg grid style */
+.bloomberg-grid {
+  border-collapse: collapse;
+}
+
+.bloomberg-grid td, .bloomberg-grid th {
+  border: 1px solid #FFB000;
+  padding: 4px !important;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: #FFB000;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #00FF00;
+}
+
+/* Ticker marquee animation */
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-ticker {
+  animation: marquee 25s linear infinite;
+  white-space: nowrap;
+}
+
+/* High density lists & grid overrides */
+.p-6, .p-4, .p-3 {
+  padding: 4px !important;
+}
+.gap-6, .gap-4, .gap-3 {
+  gap: 4px !important;
+}
+.space-y-4, .space-y-3 {
+  margin-top: 2px !important;
+  margin-bottom: 2px !important;
+}
+.m-8, .mx-8 {
+  margin-left: 4px !important;
+  margin-right: 4px !important;
+}
