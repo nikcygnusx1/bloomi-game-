@@ -16,6 +16,10 @@ import { LabMapView } from './components/LabMapView';
 import { ResearchPanel } from './components/ResearchPanel';
 import { StaffPanel } from './components/StaffPanel';
 import { playSyntheticSound } from './utils/audio';
+import { BloomiSingularityCore } from './components/BloomiSingularityCore';
+import { OrbitalRadarPanel } from './components/OrbitalRadarPanel';
+import { IntrusionTraceConsole } from './components/IntrusionTraceConsole';
+import { BloomiTradingTerminal } from './components/BloomiTradingTerminal';
 import { 
   Skull, 
   Activity, 
@@ -42,8 +46,21 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  const [gameState, setGameState] = useState<SimState | null>(null);
-  const [activeTab, setActiveTab] = useState<'WORLD' | 'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS' | 'AI_WAR' | 'SATELLITES' | 'DEBT' | 'SUPPLY_CHAINS'>('WORLD');
+  const [gameState, rawSetGameState] = useState<SimState | null>(null);
+
+  // Custom setter that intercepts functional updaters to deep-clone game state,
+  // preventing nested mutations under React's Strict Mode double-runs.
+  const setGameState = React.useCallback((valueOrUpdater: React.SetStateAction<SimState | null>) => {
+    rawSetGameState((prev) => {
+      if (typeof valueOrUpdater === 'function') {
+        if (!prev) return null;
+        const clonedPrev = JSON.parse(JSON.stringify(prev)) as SimState;
+        return (valueOrUpdater as Function)(clonedPrev);
+      }
+      return valueOrUpdater;
+    });
+  }, []);
+  const [activeTab, setActiveTab] = useState<'WORLD' | 'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS' | 'AI_WAR' | 'SATELLITES' | 'DEBT' | 'SUPPLY_CHAINS' | 'SINGULARITY'>('SINGULARITY');
   const [selectedTicker, setSelectedTicker] = useState('APLH');
   const [selectedRegionId, setSelectedRegionId] = useState<string>('US');
   
@@ -135,6 +152,21 @@ export default function App() {
     };
   }, []);
 
+  // Synergetic Career Stage evolution monitoring hook
+  useEffect(() => {
+    if (!gameState) return;
+    const currentStage = gameState.careerStage || 'Family Office';
+    if (currentStage !== prevStage) {
+      setPrevStage(currentStage);
+      setShowLevelUpCelebration(true);
+      playSyntheticSound('profit');
+      const timer = setTimeout(() => {
+        setShowLevelUpCelebration(false);
+      }, 5500);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState?.careerStage, prevStage]);
+
   // System ticking interval loop
   useEffect(() => {
     if (loopRef.current) clearInterval(loopRef.current);
@@ -144,21 +176,9 @@ export default function App() {
     loopRef.current = setInterval(() => {
       setGameState((prev) => {
         if (!prev) return null;
-        // Deep clone state to ensure perfect React rendering lifecycle sync and prevent nested mutation artifacts
-        const clonedState = JSON.parse(JSON.stringify(prev)) as SimState;
-        const nextState = GeopoliticalOmegaEngine.tick(clonedState);
+        // Geopolitical engine progression tick execution
+        const nextState = GeopoliticalOmegaEngine.tick(prev);
         
-        // Check for stage progression celebration
-        if (nextState.careerStage !== prevStage) {
-          setPrevStage(nextState.careerStage);
-          setShowLevelUpCelebration(true);
-          playSyntheticSound('profit');
-          // Auto-dim after 5.5s
-          setTimeout(() => {
-            setShowLevelUpCelebration(false);
-          }, 5500);
-        }
-
         // Auto-save state every 15 ticks of progress
         if (nextState.currentTick % 15 === 0) {
           saveSimState(nextState);
@@ -170,7 +190,7 @@ export default function App() {
     return () => {
       if (loopRef.current) clearInterval(loopRef.current);
     };
-  }, [isPaused, speedMultiplier, prevStage]);
+  }, [isPaused, speedMultiplier]);
 
   if (!gameState) {
     return (
@@ -646,9 +666,14 @@ export default function App() {
       logToTerminal('COMMAND DESK: LOADED F11 [INTEL] DISINFO NARRATIVE WARFARE.');
       return;
     }
-    if (cmd === 'F12' || cmd === 'F12 <GO>' || cmd === 'EQUITY' || cmd === 'TRADING' || cmd === 'TRADE') {
+    if (cmd === 'F12' || cmd === 'F12 <GO>' || cmd === 'SINGULARITY' || cmd === 'BLOOMI' || cmd === 'BLOOMI_CORE') {
+      setActiveTab('SINGULARITY');
+      logToTerminal('COMMAND DESK: LOADED F12 [BLOOMI_CORE] MASTER FINANCIAL WAR HYBRID CONSOLE.');
+      return;
+    }
+    if (cmd === 'TRADING' || cmd === 'TRADE') {
       setActiveTab('TRADING');
-      logToTerminal('COMMAND DESK: LOADED F12 [TRADING] DERIVATIVE ORDER BOOKS BOOK.');
+      logToTerminal('COMMAND DESK: LOADED [TRADING] DERIVATIVE ORDER BOOKS.');
       return;
     }
 
@@ -904,7 +929,7 @@ export default function App() {
               {isPaused ? 'HALTED' : 'RUNNING'}
             </button>
             <div className="flex rounded-terminal border border-[#1e2535] overflow-hidden">
-              {([1, 5, 10] as number[]).map((spd) => (
+              {([1, 5, 10, 100] as number[]).map((spd) => (
                 <button
                   key={spd}
                   onClick={() => { setSpeedMultiplier(spd); playSyntheticSound('tick'); }}
@@ -943,8 +968,8 @@ export default function App() {
                 { id: 'STAFF' as const, key: 'F9', label: 'FIELD_OPS', icon: Users },
                 { id: 'DYNASTY' as const, key: 'F10', label: 'DYNA_GENE', icon: Award },
                 { id: 'INTELLIGENCE' as const, key: 'F11', label: 'INTEL_DIV', icon: Skull },
-                { id: 'TRADING' as const, key: 'F12', label: 'DER_DESK', icon: TrendingUp },
-                { id: 'HELP' as const, key: 'F1', label: 'HELP_DESK', icon: Sparkles }
+                { id: 'SINGULARITY' as const, key: 'F12', label: 'BLOOMI_CORE', icon: Cpu },
+                { id: 'HELP' as const, key: 'F1', label: 'BBG_DESK', icon: TrendingUp }
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
@@ -1343,107 +1368,12 @@ export default function App() {
             )}
 
             {activeTab === 'AI_WAR' && (
-              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
-                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
-                  <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider">// OMEGA INTRUSION TRACE CONSOLE</span>
-                  <span className="text-[9px] text-[#00c2ff] font-bold">FIREWALL INTEGRITY DESK</span>
-                </div>
-
-                <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal flex flex-col md:flex-row gap-3 overflow-y-auto">
-                  {/* Neural intrusion topology map */}
-                  <div className="flex-1 min-h-[180px] bg-[#0a0c0f] border border-[#1e2535] rounded-terminal p-2 flex flex-col justify-between">
-                    <span className="text-[8px] opacity-60 text-slate-400 uppercase font-bold">// CYBER INTRUSION TOPOLOGY NETWORK</span>
-                    
-                    <svg viewBox="0 0 400 220" className="w-full text-slate-800 flex-1">
-                      <path d="M 50 50 Q 150 110 200 110" className="stroke-red-650 fill-none stroke-1 animate-pulse" />
-                      <path d="M 350 50 Q 250 110 200 110" className="stroke-red-650 fill-none stroke-1 border-dashed" />
-                      <path d="M 50 180 Q 150 110 200 110" className="stroke-red-500 fill-none stroke-1" />
-                      <line x1="350" y1="180" x2="200" y2="110" className="stroke-orange-500/20 stroke-1" />
-
-                      <circle cx="200" cy="110" r="14" className="fill-red-950 stroke-red-500 stroke-2 animate-pulse" />
-                      <text x="180" y="85" className="text-[8px] fill-red-500 font-bold tracking-wider">OMEGA_CORE</text>
-
-                      <circle cx="50" cy="50" r="8" className="fill-slate-900 stroke-slate-500 stroke-1" />
-                      <text x="35" y="38" className="text-[7.5px] fill-slate-300 font-bold">US-NET</text>
-
-                      <circle cx="350" cy="50" r="8" className="fill-slate-900 stroke-slate-500 stroke-1" />
-                      <text x="330" y="38" className="text-[7.5px] fill-slate-300 font-bold">CN-NET</text>
-
-                      <circle cx="50" cy="180" r="8" className="fill-slate-900 stroke-slate-500 stroke-1" />
-                      <text x="35" y="194" className="text-[7.5px] fill-slate-300 font-bold">EU-NET</text>
-
-                      <circle cx="350" cy="180" r="8" className="fill-emerald-900 stroke-emerald-500 stroke-1" />
-                      <text x="330" y="194" className="text-[7.5px] fill-emerald-300 font-bold">CH_SECURE</text>
-                    </svg>
-
-                    <span className="text-[8.5px] text-red-400 font-terminal italic">SYSTEM SECURITY LOCK IN JEOPARDY</span>
-                  </div>
-
-                  {/* Anti AI controls */}
-                  <div className="w-full md:w-56 flex flex-col gap-2.5 font-terminal">
-                    <div className="bg-[#141920] border border-[#1e2535] p-2.5 rounded-terminal uppercase">
-                      <span className="text-[8px] text-slate-400 block font-bold">// OMEGA SYSTEM TELEMETRY</span>
-                      <div className="mt-1.5 space-y-1.5 text-[9.5px]">
-                        <div className="flex justify-between">
-                          <span>THREAT INDEX:</span>
-                          <span className="text-red-500 font-bold">{gameState.omegaThreatLevel ? gameState.omegaThreatLevel.toFixed(1) : '15'}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>FIREWALL INTEGRITY:</span>
-                          <span className="text-[#00ff88] font-bold">{gameState.neuralFirewallPower ?? 50}%</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>ACTIVE ATTACKS:</span>
-                          <span className="text-[#ff3b5c]/80 truncate font-mono">
-                            {gameState.omegaActiveAttacks && gameState.omegaActiveAttacks.length > 0 ? gameState.omegaActiveAttacks.join(', ') : 'NONE_DETECTED'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <button 
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev || prev.player.cash < 250000000) {
-                              logToTerminal('REJECTED: Insufficient cash ($250M required) to deploy firewall reinforcements.', true);
-                              return prev;
-                            }
-                            const next = { ...prev };
-                            next.player.cash -= 250000000;
-                            next.neuralFirewallPower = Math.min(100, next.neuralFirewallPower + 25);
-                            logToTerminal('FIREWALL REINFORCED: Discharged clean subnet patches. Security ratings up.');
-                            playSyntheticSound('profit');
-                            return next;
-                          });
-                        }}
-                        className="w-full bg-[#00c2ff]/10 hover:bg-[#00c2ff]/20 border border-[#00c2ff]/40 text-[#00c2ff] font-bold py-1.5 text-center text-[9.5px] rounded-terminal uppercase tracking-tight cursor-pointer"
-                      >
-                        BOOST SUB_FIREWALL (-$250M)
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev || prev.player.cash < 450000000) {
-                              logToTerminal('REJECTED: Insufficient finance reserves ($450M required).', true);
-                              return prev;
-                            }
-                            const next = { ...prev };
-                            next.player.cash -= 450000000;
-                            next.omegaThreatLevel = Math.max(5, next.omegaThreatLevel - 20);
-                            logToTerminal('ATTACK COMPLETED: Executed hardware nodes disruption raid over OMEGA systems.');
-                            playSyntheticSound('order');
-                            return next;
-                          });
-                        }}
-                        className="w-full bg-red-950/40 hover:bg-red-900/30 border border-red-700/50 text-red-400 font-bold py-1.5 text-center text-[9.5px] rounded-terminal uppercase tracking-tight cursor-pointer"
-                      >
-                        JAM OMEGA HARDWARD NODES (-$450M)
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <IntrusionTraceConsole
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
             )}
 
             {activeTab === 'DEBT' && (
@@ -1731,76 +1661,12 @@ export default function App() {
             )}
 
             {activeTab === 'SATELLITES' && (
-              <div className="flex flex-col h-full overflow-hidden select-none font-mono">
-                <div className="flex justify-between items-center bg-[#0f1318] border border-[#1e2535] p-2 rounded-terminal mb-1.5 shadow-[inset_0_1px_3px_rgba(0,0,0,0.6)]">
-                  <span className="text-[10px] text-yellow-500 font-bold uppercase tracking-wider">// ORBITAL SWEEP CO-INTEGRATION RADARS</span>
-                  <span className="text-[9px] text-[#00c2ff] font-bold">RADAR CONSOLE</span>
-                </div>
-
-                <div className="flex-1 bg-[#07090d] border border-[#1e2535] p-3 rounded-terminal overflow-y-auto flex flex-col md:flex-row gap-3">
-                  <div className="flex-1 bg-[#0a0c0f] border border-[#1e2535] rounded-terminal p-3 flex flex-col justify-between items-center relative min-h-[180px] font-terminal">
-                    <div className="absolute inset-0 pointer-events-none opacity-25">
-                      <div className="w-full h-full rounded-full border border-yellow-500/30 animate-pulse scale-90" />
-                      <div className="w-full h-full rounded-full border border-yellow-500/15 animate-ping" />
-                    </div>
-
-                    <span className="text-[8px] opacity-60 text-slate-400 self-start uppercase font-bold">// CO-INTEGRATION AZIMUTH PLOT</span>
-                    
-                    <div className="space-y-1 text-center my-auto z-10">
-                      <span className="text-yellow-400 font-bold text-[12px] block tracking-wider animate-pulse">// SATELLITE SENSOR LINK ESTABLISHED //</span>
-                      <p className="text-[9.5px] text-slate-300 max-w-sm">
-                        High-altitude arrays sweep critical physical nodes, harvesting security exploits and public distress files to feed automated frontrunners arbitrage.
-                      </p>
-                    </div>
-
-                    <div className="flex justify-between items-center w-full border-t border-slate-900 pt-1 text-[8.5px] text-slate-500 uppercase">
-                      <span>RADAR SWEEP ANGLE: 120DEG</span>
-                      <span>RESOLUTION: 0.1M DET DETAIL</span>
-                    </div>
-                  </div>
-
-                  <div className="w-full md:w-56 bg-[#141920] border border-[#1e2535] rounded-terminal p-2.5 uppercase flex flex-col gap-2 justify-between font-terminal">
-                    <div>
-                      <span className="text-[8px] text-slate-400 block mb-1 font-bold">// CONSTELLATION OVERVIEW</span>
-                      <div className="space-y-0.5 text-[9.5px] text-slate-300">
-                        {gameState.satelliteCoordinates && gameState.satelliteCoordinates.map((sat: any) => (
-                          <div key={sat.name || sat.id} className="flex justify-between border-b border-slate-900 pb-0.5">
-                            <span>{sat.name}:</span>
-                            <span className="text-yellow-400 font-bold">AZ:{sat.x.toFixed(0)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        setGameState((p) => {
-                          if (!p || p.player.cash < 180000000) {
-                            logToTerminal('REJECTED: Insufficient cash ($180M required) for satellite launch.', true);
-                            return p;
-                          }
-                          const next = { ...p };
-                          next.player.cash -= 180000000;
-                          const newId = next.satelliteCoordinates ? next.satelliteCoordinates.length + 1 : 1;
-                          if (!next.satelliteCoordinates) next.satelliteCoordinates = [];
-                          next.satelliteCoordinates.push({
-                            id: 'sat_' + newId,
-                            name: 'CORVUS_' + String.fromCharCode(64 + newId),
-                            x: Math.random() * 400 + 100,
-                            y: Math.random() * 150 + 50
-                          });
-                          logToTerminal(`PAYLOAD DEPLOYED: Satellite CORVUS_${String.fromCharCode(64 + newId)} placed in stable low-Earth orbit. Scanning nodes.`);
-                          playSyntheticSound('profit');
-                          return next;
-                        });
-                      }}
-                      className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/40 text-yellow-500 font-bold p-1 rounded-terminal uppercase tracking-tight text-center text-[9.5px] cursor-pointer"
-                    >
-                      LAUNCH NEW SATELLITE (-$180M)
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <OrbitalRadarPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
             )}
 
             {activeTab === 'RESEARCH' && (
@@ -1822,227 +1688,36 @@ export default function App() {
             )}
 
             {activeTab === 'HELP' && (
-              <div className="p-3 flex flex-col gap-2.5 overflow-y-auto h-full font-mono text-xs select-none bg-[#0f1318] border border-[#1e2535] rounded-terminal text-[#00c2ff]">
-                <h2 className="text-[#00c2ff] font-display font-medium text-sm tracking-tight border-b border-[#1e2535] pb-1.5">
-                  GLOBAL SOVEREIGN TERMINAL // COMMAND CHANNELS NAVIGATION
-                </h2>
-                <p className="text-[11px] text-[#e8edf5] leading-relaxed">
-                  SECURE PLATFORM CORE INTEGRITY ENGAGED. CAPITALS DESK SYSTEMS AND PRIVATE ASSETS TRANSACTIONS ARE ROUTED VIA UNIFIED COMMAND DIALECTICS. ENTER THEM DIRECTLY IN THE BBG_CONSOLE SHELL BELOW.
-                </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1.5">
-                  <div className="border border-[#1e2535] p-2.5 bg-[#141920] rounded-terminal">
-                    <h3 className="text-white font-bold text-[10px] mb-1.5 border-b border-[#1e2535] pb-1">FUNCTION SHORTCUTS</h3>
-                    <div className="space-y-1 font-mono text-[9.5px] text-slate-300">
-                      <div><span className="text-[#00c2ff] font-bold">F1 &lt;GO&gt;</span> - ACTIVE REQUISITIONS OPERATION GUIDE MANUAL</div>
-                      <div><span className="text-[#00c2ff] font-bold">F2 &lt;GO&gt;</span> - OPEN INTERACTION SYMBOLS TRADING PANEL</div>
-                      <div><span className="text-[#00c2ff] font-bold">F3 &lt;GO&gt;</span> - CORPORATE PRIVATE MARGINS DISCHARGE DIRECTIVES</div>
-                      <div><span className="text-[#00c2ff] font-bold">F4 &lt;GO&gt;</span> - SOVEREIGN DEBUREAUCRACY REGISTERED STATS</div>
-                      <div><span className="text-[#00c2ff] font-bold">F5 &lt;GO&gt;</span> - ACTIVE EMBASSY CONTROLS LOBBYING INTERFACE</div>
-                      <div><span className="text-[#00c2ff] font-bold">F6 &lt;GO&gt;</span> - DYNAST CHROMOSOMAL AND TRAITS MATRIX</div>
-                      <div><span className="text-[#00c2ff] font-bold">F7 &lt;GO&gt;</span> - INTEL BOMB STRIKES & INFORMERS RECRUIT UNIT</div>
-                      <div><span className="text-[#00c2ff] font-bold">F8 &lt;GO&gt;</span> - FUND OPERATIONS PERFORMANCE & AI ANALYSTS (AUM)</div>
-                      <div><span className="text-[#00c2ff] font-bold">F9 &lt;GO&gt;</span> - SECTORS HEATMAP & MACRO INDEX GRIDS</div>
-                    </div>
-                  </div>
-
-                  <div className="border border-[#1e2535] p-2.5 bg-[#141920] rounded-terminal">
-                    <h3 className="text-white font-bold text-[10px] mb-1.5 border-b border-[#1e2535] pb-1">DIRECT TRANSACTION CLI DIALECTICS</h3>
-                    <div className="space-y-1 font-mono text-[9.5px] text-slate-300">
-                      <div><span className="text-[#00ff88] font-bold">BUY &lt;TICKER&gt; &lt;PRICE&gt; &lt;QTY&gt; &lt;GO&gt;</span> - SUBMIT LONG/COVER CONTRACT</div>
-                      <div><span className="text-[#ff3b5c] font-bold">SELL &lt;TICKER&gt; &lt;PRICE&gt; &lt;QTY&gt; &lt;GO&gt;</span> - SUBMIT SHORT/DUMP SELL CONTRACT</div>
-                      <div><span className="text-[#e8edf5] font-bold">DEBT &lt;NAT&gt; &lt;VAL&gt; &lt;GO&gt;</span> - PURCHASE SOVEREIGN DEBT BONDS</div>
-                      <div><span className="text-[#e8edf5] font-bold">OVERRIDES &lt;NAT&gt; &lt;GO&gt;</span> - OVERRIDE CB MONETERIZATION (PUPPET PRESS)</div>
-                      <div><span className="text-[#e8edf5] font-bold">STRIKE &lt;NAT&gt; &lt;SYM&gt; &lt;GO&gt;</span> - INITIATE NARRATIVE DISINFO WARFARE</div>
-                      <div><span className="text-[#e8edf5] font-bold">LAYOFFS &lt;SYM&gt; &lt;GO&gt;</span> - RESTRUCTURE CORPORATE WORKFORCE (EMIT 20% LABORS)</div>
-                      <div><span className="text-[#e8edf5] font-bold">TAKEOVER &lt;SYM&gt; &lt;GO&gt;</span> - ACQUIRE PRIVATE COMPANY BOARD CONTROL</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border border-[#1e2535] p-2 bg-[#141920] rounded-terminal mt-2">
-                  <h4 className="text-[#00c2ff] font-bold text-[9.5px] mb-1">INTERACTIVE DESK GUIDELINES</h4>
-                  <p className="text-[9px] text-[#e8edf5]/80 leading-normal">
-                    PORTFOLIOS EXECUTIONS DIRECTLY MAP ONTO ACTIVE DOCK GRIDS. USE PHYSICAL ACTION BUTTONS TO AUTO-TRIGGER COMMAND PARAMETERS ON DEMAND.
-                  </p>
-                </div>
-              </div>
+              <BloomiTradingTerminal
+                state={gameState!}
+                selectedTicker={selectedTicker}
+                setSelectedTicker={setSelectedTicker}
+                onExecuteCommand={executeUnifiedCommand}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
             )}
             {activeTab === 'TRADING' && (
-              <div className="h-full flex overflow-hidden bg-[#0a0c0f]">
-                {/* Lateral ticker selector & leverage and bot settings */}
-                <div className="w-[195px] border-r border-[#1e2535] bg-[#0b0e14] flex flex-col shrink-0 select-none rounded-terminal mr-2 overflow-y-auto">
-                  <div className="p-2 border-b border-[#1e2535] text-[9.5px] font-bold text-center text-[#00c2ff] bg-[#141920] uppercase font-terminal">TRADING TICKERS</div>
-                  <div className="flex-1 overflow-y-auto">
-                    {Object.keys(gameState.markets).map(sym => (
-                      <button
-                        key={sym}
-                        onClick={() => executeUnifiedCommand(`${sym} <GO>`)}
-                        className={`w-full text-left p-1.5 px-2.5 text-[11px] border-b border-[#1e2535] cursor-pointer flex justify-between items-center transition-all font-terminal ${selectedTicker === sym ? 'bg-[#1a2030] text-[#00c2ff] font-bold border-l-2 border-l-[#00c2ff]' : 'text-slate-300 hover:bg-[#141920]'}`}
-                      >
-                        <span className="truncate">{sym}</span>
-                        <span className="text-[9.5px] text-[#00ff88] font-bold font-terminal shrink-0">${gameState.markets[sym]?.currentPrice.toFixed(2)}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Leverage Selector Widget */}
-                  <div className="p-2 border-t border-[#1e2535] bg-[#0b0d12] flex flex-col gap-1 font-terminal shrink-0">
-                    <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">// SECTOR LEVERAGE CAP</span>
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev) return null;
-                            const next = { ...prev };
-                            const currentLev = (next.player as any).leverageSelected || 3;
-                            const idx = [1, 3, 5, 10, 25, 50, 100].indexOf(currentLev);
-                            const nextLev = [1, 3, 5, 10, 25, 50, 100][Math.max(0, idx - 1)];
-                            (next.player as any).leverageSelected = nextLev;
-                            logToTerminal(`LEVERAGE PROTOCOL SHIFTED: Capital multiplier reset to ${nextLev}x.`);
-                            playSyntheticSound('tick');
-                            return next;
-                          });
-                        }}
-                        className="px-1.5 py-0.5 text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer rounded"
-                      >-</button>
-                      <span className="text-[#ffaa00] font-black text-xs font-mono">{(gameState.player as any).leverageSelected || 3}X</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev) return null;
-                            const isLocked = prev.careerStage === 'Family Office';
-                            if (isLocked) {
-                              logToTerminal('REJECTED: Retail Basement tier restricted to 3X max leverage. Unlock "Emerging Manager" to lift restrictions.', true);
-                              playSyntheticSound('warning');
-                              return prev;
-                            }
-                            const next = { ...prev };
-                            const currentLev = (next.player as any).leverageSelected || 3;
-                            const idx = [1, 3, 5, 10, 25, 50, 100].indexOf(currentLev);
-                            const nextLev = [1, 3, 5, 10, 25, 50, 100][Math.min(6, idx + 1)];
-                            (next.player as any).leverageSelected = nextLev;
-                            logToTerminal(`LEVERAGE PROTOCOL SHIFTED: Capital multiplier reset to ${nextLev}x.`);
-                            playSyntheticSound('tick');
-                            return next;
-                          });
-                        }}
-                        className="px-1.5 py-0.5 text-[9px] bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer rounded"
-                      >+</button>
-                    </div>
-                    <p className="text-[7.5px] text-slate-500 leading-tight uppercase">Margin buffer threshold is {(45 / ((gameState.player as any).leverageSelected || 3)).toFixed(2)}% net equity.</p>
-                  </div>
-
-                  {/* Algorithmic Bots Widget */}
-                  <div className="p-2 border-t border-b border-[#1e2535] bg-[#07090d] flex flex-col gap-1 font-terminal shrink-0">
-                    <span className="text-[8px] text-[#00c2ff] font-bold uppercase tracking-wider">// QUANT AUTOMATION SERVICE</span>
-                    {/* Bot 1: HFT Sigma Trend */}
-                    <div className="flex items-center justify-between text-[8.5px] text-slate-300">
-                      <span>SIGMA BULL BOT:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev) return null;
-                            const isLocked = prev.careerStage === 'Family Office';
-                            if (isLocked) {
-                              logToTerminal('REJECTED: Algos locked for T0 Basement Quants. Ascend stage to authorize automated execution.', true);
-                              playSyntheticSound('warning');
-                              return prev;
-                            }
-                            const next = { ...prev };
-                            next.activeBots = next.activeBots || {};
-                            next.activeBots.sigmaHunter = !next.activeBots.sigmaHunter;
-                            logToTerminal(`BOT MATRIX: Sigma Bull Hunter auto-trading bot set to ${next.activeBots.sigmaHunter ? 'ACTIVE_ARMED' : 'STANDBY'}.`);
-                            playSyntheticSound('order');
-                            return next;
-                          });
-                        }}
-                        className={`px-1 py-0.5 text-[7px] font-bold cursor-pointer rounded border ${gameState.activeBots?.sigmaHunter ? 'bg-emerald-950 text-[#00ff88] border-emerald-500' : 'bg-slate-850 text-slate-400 border-slate-700'}`}
-                      >
-                        {gameState.activeBots?.sigmaHunter ? 'ACTIVE' : 'OFF'}
-                      </button>
-                    </div>
-
-                    {/* Bot 2: CDS Reaper */}
-                    <div className="flex items-center justify-between text-[8.5px] text-slate-300">
-                      <span>SVRN CDS REAPER:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev) return null;
-                            const isLocked = prev.careerStage === 'Family Office';
-                            if (isLocked) {
-                              logToTerminal('REJECTED: Algos locked for T0 Basement Quants. Ascend stage to authorize automated execution.', true);
-                              playSyntheticSound('warning');
-                              return prev;
-                            }
-                            const next = { ...prev };
-                            next.activeBots = next.activeBots || {};
-                            next.activeBots.cdsReaper = !next.activeBots.cdsReaper;
-                            logToTerminal(`BOT MATRIX: Sovereign CDS Reaper automated hedging bot set to ${next.activeBots.cdsReaper ? 'ACTIVE_ARMED' : 'STANDBY'}.`);
-                            playSyntheticSound('order');
-                            return next;
-                          });
-                        }}
-                        className={`px-1 py-0.5 text-[7px] font-bold cursor-pointer rounded border ${gameState.activeBots?.cdsReaper ? 'bg-emerald-950 text-[#00ff88] border-emerald-500' : 'bg-slate-850 text-slate-400 border-slate-700'}`}
-                      >
-                        {gameState.activeBots?.cdsReaper ? 'ACTIVE' : 'OFF'}
-                      </button>
-                    </div>
-
-                    {/* Bot 3: Dark Pools Arbitrage */}
-                    <div className="flex items-center justify-between text-[8.5px] text-slate-300">
-                      <span>SCYTHE HFT ARB:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGameState(prev => {
-                            if (!prev) return null;
-                            const isLocked = prev.careerStage === 'Family Office' || prev.careerStage === 'Emerging Manager';
-                            if (isLocked) {
-                              logToTerminal('REJECTED: High-frequency Dark Pool Arbitrage requires Tier 2 Hedge Fund Titan stage clearance.', true);
-                              playSyntheticSound('warning');
-                              return prev;
-                            }
-                            const next = { ...prev };
-                            next.activeBots = next.activeBots || {};
-                            next.activeBots.scytheArbitrage = !next.activeBots.scytheArbitrage;
-                            logToTerminal(`BOT MATRIX: Scythe Arbitrage High-Speed Execution bot set to ${next.activeBots.scytheArbitrage ? 'ACTIVE_ARMED' : 'STANDBY'}.`);
-                            playSyntheticSound('order');
-                            return next;
-                          });
-                        }}
-                        className={`px-1 py-0.5 text-[7px] font-bold cursor-pointer rounded border ${gameState.activeBots?.scytheArbitrage ? 'bg-emerald-950 text-[#00ff88] border-emerald-500' : 'bg-slate-850 text-slate-400 border-slate-705'}`}
-                      >
-                        {gameState.activeBots?.scytheArbitrage ? 'ACTIVE' : 'OFF'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main HFT chart split-panel */}
-                <div className="flex-1 flex flex-col lg:flex-row gap-2 h-full overflow-hidden">
-                  <div className="flex-1 h-full min-h-[260px]">
-                    {gameState && (
-                      <TradingViewChart 
-                        state={gameState} 
-                        activeTicker={selectedTicker} 
-                        onPlaceOrder={(side, price, qty) => {
-                          executeUnifiedCommand(`${side.toUpperCase()} ${selectedTicker} ${price.toFixed(2)} ${qty} <GO>`);
-                        }}
-                      />
-                    )}
-                  </div>
-                  {/* CERN Hadron particle collider readout */}
-                  <div className="w-full lg:w-[250px] xl:w-[280px] shrink-0 h-full">
-                    <CernHadronAccelerator state={gameState} activeTicker={selectedTicker} />
-                  </div>
-                </div>
-              </div>
+              <BloomiTradingTerminal
+                state={gameState!}
+                selectedTicker={selectedTicker}
+                setSelectedTicker={setSelectedTicker}
+                onExecuteCommand={executeUnifiedCommand}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
+            )}
+            {activeTab === 'SINGULARITY' && gameState && (
+              <BloomiSingularityCore
+                state={gameState}
+                setGameState={setGameState}
+                executeCommand={executeUnifiedCommand}
+                logToTerminal={logToTerminal}
+                activeTicker={selectedTicker}
+                onSetTicker={setSelectedTicker}
+              />
             )}
             {activeTab === 'INFLUENCE' && (
               <InfluenceWeb 
@@ -2070,9 +1745,12 @@ export default function App() {
             )}
             {activeTab === 'DYNASTY' && (
               <DynastyTree 
-                state={gameState} 
+                state={gameState!} 
                 onSomaticEdits={handleSomaticEdits}
                 onHeirSpawn={handleHeirSpawn}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
               />
             )}
             {activeTab === 'MACRO' && (
