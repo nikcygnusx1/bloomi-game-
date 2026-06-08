@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SimState, Country, Company, Market, CryptoChain, HedgeFund, InfluenceNode, DynastyMember, TraumaLog, CableLog } from '../types';
+import { SimState, Country, Company, Market, CryptoChain, HedgeFund, InfluenceNode, DynastyMember, TraumaLog, CableLog, LabStructure, ResearchNode, LaboratoryStaff } from '../types';
 
 export class GeopoliticalOmegaEngine {
   
   static tick(state: SimState): SimState {
+    // 0. Run Black Rain Climate Lab Simulation Systems (power, crops, disaster, weather)
+    state = this.tickLabClimate(state);
+
     // Increment Tick
     state.currentTick++;
     
@@ -921,6 +924,323 @@ export class GeopoliticalOmegaEngine {
           classification: 'EYES_ONLY'
         });
       }
+    }
+
+    return state;
+  }
+
+  private static tickLabClimate(state: SimState): SimState {
+    const rawDate = state.date;
+
+    // Initialize/calculate power & water configurations
+    let powerSupply = 100; // base generator output
+    let powerDemand = 0;
+    let waterSupply = 120; // base recycling grid output 
+    let waterDemand = 0;
+
+    // Loop through structures to calculate grids and health degradations
+    if (state.labStructures) {
+      state.labStructures.forEach(str => {
+        // Reactor cores generate power (-MW usage represents generation)
+        if (str.powerUsage < 0) {
+          powerSupply += Math.abs(str.powerUsage) * str.level;
+        } else {
+          powerDemand += str.powerUsage * str.level;
+        }
+        waterDemand += str.waterUsage * str.level;
+      });
+    }
+
+    state.labPowerMax = powerSupply;
+    state.labPowerUsed = powerDemand;
+    state.labWaterMax = waterSupply;
+    state.labWaterUsed = waterDemand;
+
+    // Deduct Staff Salaries & handle stress
+    let totalWeeklySalary = 0;
+    if (state.labStaff) {
+      state.labStaff.forEach(stf => {
+        totalWeeklySalary += Math.floor(stf.salary / 4); // convert annual/monthly into weekly
+        // If severe weather is active, raise stress
+        if (state.currentWeather !== 'CLEAR') {
+          stf.stress = Math.min(100, stf.stress + (Math.random() * 8 + 4));
+        } else {
+          stf.stress = Math.max(0, stf.stress - (Math.random() * 5 + 2));
+        }
+        // Stress causes loyalty drops
+        if (stf.stress > 75) {
+          stf.loyalty = Math.max(10, stf.loyalty - 3);
+          // Burnout reduces skill slightly
+          stf.skill = Math.max(20, stf.skill - 1);
+        }
+      });
+    }
+
+    // Deduct salary from cash
+    state.player.cash = Math.max(0, state.player.cash - totalWeeklySalary);
+
+    // Grid Overload Failure
+    if (state.labPowerUsed > state.labPowerMax) {
+      // 20% blackout risk
+      if (Math.random() < 0.20) {
+        state.currentWeather = 'GRID_COLLAPSE';
+        state.weatherTicksRemaining = 2;
+        state.cables.push({
+          time: `${rawDate} 19:30:00`,
+          source: 'POWER_GRID',
+          message: `OVERLOAD FAILING: Lab demand of ${state.labPowerUsed}MW exceeds ${state.labPowerMax}MW. Sizable substation blackouts cascading through Sector-B vaults.`,
+          classification: 'TOP_SECRET'
+        });
+      }
+    }
+
+    // Drone Bay healing automation
+    let droneBaysCount = 0;
+    if (state.labStructures) {
+      droneBaysCount = state.labStructures.filter(s => s.type === 'DRONE_BAY' && s.health > 15).length;
+    }
+
+    // Autonomous drones benefit
+    const dronesUnlocked = state.researchTree?.autonomousLabDrones?.unlocked;
+
+    // 1. Process active weather ticking
+    if (state.weatherTicksRemaining > 0) {
+      state.weatherTicksRemaining--;
+      const isAegis = state.researchTree?.climateShield?.unlocked;
+
+      if (!isAegis && state.labStructures) {
+        // Apply storm damages
+        switch (state.currentWeather) {
+          case 'BLACK_RAIN':
+            // Corrodes RANDOM rooms
+            state.labStructures.forEach(s => {
+              if (Math.random() < 0.35) {
+                s.health = Math.max(0, s.health - 12);
+              }
+            });
+            // Ticker futures bump
+            if (state.markets['WETH-FUT']) {
+              state.markets['WETH-FUT'].currentPrice *= 1.15;
+            }
+            break;
+          case 'FLASH_FLOOD':
+            state.floodLevel = Math.min(100, state.floodLevel + 25);
+            state.labStructures.forEach(s => {
+              if (s.type === 'SERVER_RACK' || s.type === 'CROP_POD') {
+                s.health = Math.max(0, s.health - 15);
+              }
+            });
+            break;
+          case 'HEAT_DOME':
+            // High damage to crop pods
+            state.labStructures.forEach(s => {
+              if (s.type === 'CROP_POD') {
+                const reduce = state.researchTree?.syntheticDroughtCrops?.unlocked ? 4 : 18;
+                s.health = Math.max(0, s.health - reduce);
+              }
+            });
+            if (state.markets['SOY-CROP']) {
+              state.markets['SOY-CROP'].currentPrice *= 1.25;
+            }
+            if (state.markets['H2O-LIQ']) {
+              state.markets['H2O-LIQ'].currentPrice *= 1.12;
+            }
+            break;
+          case 'CROP_BLIGHT':
+            state.labStructures.forEach(s => {
+              if (s.type === 'CROP_POD') {
+                s.health = Math.max(0, s.health - 22);
+              }
+            });
+            if (state.markets['SOY-CROP']) {
+              state.markets['SOY-CROP'].currentPrice *= 1.35;
+            }
+            break;
+          case 'LIGHTNING_STORM':
+            // Strikes random structure
+            if (state.labStructures.length > 0) {
+              const rStrId = Math.floor(Math.random() * state.labStructures.length);
+              state.labStructures[rStrId].health = Math.max(0, state.labStructures[rStrId].health - 35);
+              state.cables.push({
+                time: `${rawDate} 02:45:00`,
+                source: 'RADAR_CANOPY',
+                message: `STRIKE DETECTED: Ground level lightning discharge hit ${state.labStructures[rStrId].type} coordinate. Dealing -35 integrity structure damage.`,
+                classification: 'SECRET'
+              });
+            }
+            // Overclock quantum rewards
+            if (state.researchTree?.weatherPredictionAI?.unlocked || state.researchTree?.atmosphericArbitrage?.unlocked) {
+              state.player.cash += 8000000; // Free +$8M flash-arbitrage arbitrage yields
+            }
+            break;
+          case 'GRID_COLLAPSE':
+            state.labStructures.forEach(s => { s.lastTickActive = false; });
+            break;
+          case 'MONSOON_BREACH':
+            state.floodLevel = Math.min(100, state.floodLevel + 35);
+            state.labStructures.forEach(s => { s.health = Math.max(0, s.health - 20); });
+            break;
+        }
+      }
+
+      // Automatically repair slightly using drones if unlocked
+      if ((dronesUnlocked || droneBaysCount > 0) && state.labStructures) {
+        const droneRepairAmt = dronesUnlocked ? 12 : 5;
+        state.labStructures.forEach(s => {
+          if (s.health > 0 && s.health < 100) {
+            s.health = Math.min(100, s.health + droneRepairAmt);
+          }
+        });
+      }
+
+      // Check if weather expires
+      if (state.weatherTicksRemaining === 0) {
+        state.currentWeather = 'CLEAR';
+        state.weatherThreat = 8;
+        state.cables.push({
+          time: `${rawDate} 00:00:00`,
+          source: 'ATMOSPHERE_NET',
+          message: `INFO: anomalous climate front dissipated. Local weather normalized. Status: CLEAR.`,
+          classification: 'CONFIDENTIAL'
+        });
+      }
+    } else {
+      // Clear weather behavior:
+      // Drain floodLevel
+      state.floodLevel = Math.max(0, state.floodLevel - 20);
+
+      // Increase weather threat slowly
+      state.weatherThreat = Math.min(100, state.weatherThreat + 1.5 + (state.globalSuffering / 20));
+
+      // Trigger weather storm
+      if (Math.random() * 100 < state.weatherThreat) {
+        const weathers: ('BLACK_RAIN'|'ACID_FOG'|'FLASH_FLOOD'|'HEAT_DOME'|'LIGHTNING_STORM'|'CROP_BLIGHT'|'MONSOON_BREACH')[] = ['BLACK_RAIN', 'ACID_FOG', 'FLASH_FLOOD', 'HEAT_DOME', 'LIGHTNING_STORM', 'CROP_BLIGHT', 'MONSOON_BREACH'];
+        const randomWeather = weathers[Math.floor(Math.random() * weathers.length)];
+        state.currentWeather = randomWeather;
+        state.weatherTicksRemaining = Math.floor(Math.random() * 5) + 3;
+
+        // Raise disaster alert to player
+        state.cables.push({
+          time: `${rawDate} 06:12:00`,
+          source: 'EARLY_WARNING',
+          message: `CLIMATE ANOMALY APPREHENDED: High moisture vector densities converging. Local event ${state.currentWeather} starting immediately. duration: ${state.weatherTicksRemaining} cycles.`,
+          classification: 'TOP_SECRET'
+        });
+
+        state.traumaLog.push({
+          id: Math.random().toString(),
+          tick: state.currentTick,
+          date: state.date,
+          eventType: 'WEATHER_DISASTER',
+          description: `WEATHER SHOCK: ${state.currentWeather} storm fronts descend lock over lab sectors, triggering immediate physical structure risks and commodity panic.`,
+          severity: 6
+        });
+      }
+    }
+
+    // 2. Loop through structures to yield cash & agricultural resources (biomass)
+    let totalCropHealthSum = 0;
+    let cropPodsBuiltCount = 0;
+
+    if (state.labStructures) {
+      state.labStructures.forEach(str => {
+        if (str.health <= 0) {
+          str.lastTickActive = false;
+          return;
+        }
+        str.lastTickActive = true;
+
+        if (str.type === 'CROP_POD') {
+          cropPodsBuiltCount++;
+          totalCropHealthSum += str.health;
+
+          // Yield Biomass & Cash based on room integrity level
+          const cropEfficiency = str.health / 100;
+          const generatedBiomass = Math.floor((30 + Math.random() * 15) * str.level * cropEfficiency);
+          const generatedCash = Math.floor(1800000 * str.level * cropEfficiency);
+
+          state.biomass += generatedBiomass;
+          state.player.cash += generatedCash;
+
+          // SINO (agricultural energy) price drifts
+          if (state.markets['SOY-CROP']) {
+            // Healthy yield dampens food spikes
+            state.markets['SOY-CROP'].currentPrice *= 0.98;
+          }
+        }
+
+        if (str.type === 'SERVER_RACK') {
+          const speedEfficiency = str.health / 100;
+          // algorithmic high frequency arbitrage returns cash directly
+          const arbitrageCash = Math.floor(2500000 * str.level * speedEfficiency);
+          state.player.cash += arbitrageCash;
+          state.researchPoints += 2 * str.level;
+        }
+
+        if (str.type === 'CARBON_CAPTURE') {
+          const efficiency = str.health / 100;
+          const carbonsEarned = Math.floor(1500000 * str.level * efficiency);
+          state.player.cash += carbonsEarned; // carbon offset income
+          state.regulatoryHeat = Math.max(0, state.regulatoryHeat - 1);
+          if (state.markets['CARB-CRD']) {
+            state.markets['CARB-CRD'].currentPrice *= 0.99; // carbon emissions supply increases slightly
+          }
+        }
+
+        if (str.type === 'GENE_CHAMBER') {
+          state.researchPoints += 5 * str.level;
+          // 10% research biomass converter yields
+          state.biomass += 10 * str.level;
+        }
+
+        if (str.type === 'COMMAND_ROOM') {
+          state.regulatoryHeat = Math.max(5, state.regulatoryHeat - 1.5 * str.level);
+          state.reputation = Math.min(100, state.reputation + 0.5 * str.level);
+        }
+      });
+    }
+
+    state.cropHealth = cropPodsBuiltCount > 0 ? Math.floor(totalCropHealthSum / cropPodsBuiltCount) : 0;
+
+    // Settle passive baseline market price fluctuations for WETH, SOY, etc.
+    if (state.markets['WETH-FUT']) {
+      // Natural price decay or drift
+      const targetWETH = 150 + state.weatherThreat * 2;
+      const step = (targetWETH - state.markets['WETH-FUT'].currentPrice) * 0.15;
+      state.markets['WETH-FUT'].currentPrice += step;
+    }
+    if (state.markets['DIS-INS']) {
+      // Drops when things are quiet
+      const quietFactor = state.currentWeather === 'CLEAR' ? 0.97 : 1.08;
+      state.markets['DIS-INS'].currentPrice *= quietFactor;
+    }
+
+    // Safety checks
+    state.biomass = Math.max(0, state.biomass);
+    state.researchPoints = Math.max(0, state.researchPoints);
+    state.regulatoryHeat = Math.max(0, Math.min(100, state.regulatoryHeat));
+
+    // Severe Regulatory Raid check
+    if (state.regulatoryHeat > 85 && Math.random() < 0.15) {
+      state.regulatoryHeat = 35; // reset risk
+      const raidPenaltyFee = Math.floor(state.player.cash * 0.18);
+      state.player.cash = Math.max(0, state.player.cash - raidPenaltyFee);
+
+      state.cables.push({
+        time: `${rawDate} 11:20:00`,
+        source: 'AGENCY_RAID',
+        message: `SEVERE: SEC Sovereign Taskforce raided Sector-C core vaults due to high emission and carbon counterfeiting suspicion. Paid $${raidPenaltyFee.toLocaleString()} legal settlement protection.`,
+        classification: 'EYES_ONLY'
+      });
+
+      state.traumaLog.push({
+        id: Math.random().toString(),
+        tick: state.currentTick,
+        date: state.date,
+        eventType: 'REGULATORY_RAID',
+        description: `SEC SWEEPS: Hostile regulatory raid seizes key files. Deducted a 18% liquidity compliance penalty.`,
+        severity: 8
+      });
     }
 
     return state;

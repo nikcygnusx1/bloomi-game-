@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { SimState, DynastyMember, Country, Company, CryptoChain, HedgeFund, InfluenceNode, Market, HistoryPoint } from '../types';
+import { SimState, DynastyMember, Country, Company, CryptoChain, HedgeFund, InfluenceNode, Market, HistoryPoint, LabStructure, ResearchNode, LaboratoryStaff } from '../types';
 
 export function createInitialWorld(params: {
   name: string;
@@ -101,7 +101,7 @@ export function createInitialWorld(params: {
       centralBank: {
         rate: 0.0375,
         balanceSheet: 5100000000000,
-        liquidityInjection: 0,
+        liquidityInjection: 1000000,
         printingPressOverride: false
       },
       capturedLobbyFraction: 0.08
@@ -136,7 +136,7 @@ export function createInitialWorld(params: {
     countries[c.id] = c;
   });
 
-  // 3. Companies & Markets Seeding
+  // 3. New Companies List (with agricultural/weather-hedging firms)
   const rawCompanies = [
     { id: 'aplh', name: 'AlphaTech AI', ticker: 'APLH', industry: 'AI' as const, country: 'US', shares: 1000000000, price: 150, cash: 5000000000, debt: 1000000000, revenue: 1200000000, expenses: 800000000 },
     { id: 'heli', name: 'Helios Fusion', ticker: 'HELI', industry: 'Energy' as const, country: 'US', shares: 500000000, price: 85, cash: 2000000000, debt: 5000000000, revenue: 300000000, expenses: 450000000 },
@@ -182,8 +182,47 @@ export function createInitialWorld(params: {
       type: 'equity',
       currentPrice: c.sharePrice,
       orderBook: { bids: [], asks: [] },
-      history: generateMockHistory(c.sharePrice, 100),
+      history: generateMockHistory(c.sharePrice, 35),
       liquidity: 1.0
+    };
+  });
+
+  // Adding climate-finance tickers
+  const climateTickers = [
+    { ticker: 'WETH-FUT', price: 280, type: 'derivative' as const, desc: 'Weather Sovereign Index Futures' },
+    { ticker: 'SOY-CROP', price: 65, type: 'commodity' as const, desc: 'Transgenic Soy Crop Index' },
+    { ticker: 'CARB-CRD', price: 120, type: 'derivative' as const, desc: 'Carbon Offset Emissions Contracts' },
+    { ticker: 'DIS-INS', price: 190, type: 'derivative' as const, desc: 'Disaster Insurance Annuities' },
+    { ticker: 'H2O-LIQ', price: 42, type: 'commodity' as const, desc: 'Global Water Reserves Index' }
+  ];
+
+  climateTickers.forEach(ct => {
+    companies.push({
+      id: ct.ticker.toLowerCase(),
+      name: ct.desc,
+      ticker: ct.ticker,
+      industry: 'Agriculture' as const,
+      country: 'CH',
+      sharesOutstanding: 500000000,
+      sharePrice: ct.price,
+      marketCap: 500000000 * ct.price,
+      cash: 1000000000,
+      debt: 0,
+      revenue: 50000000,
+      expenses: 40000000,
+      profit: 10000000,
+      board: [{ name: 'Seat Alfa', owner: 'Founders' }],
+      shareholders: { 'retail_public': 500000000 },
+      layoffsPercentage: 0
+    });
+
+    markets[ct.ticker] = {
+      ticker: ct.ticker,
+      type: ct.type,
+      currentPrice: ct.price,
+      orderBook: { bids: [], asks: [] },
+      history: generateMockHistory(ct.price, 35),
+      liquidity: 0.95
     };
   });
 
@@ -201,12 +240,12 @@ export function createInitialWorld(params: {
       type: 'crypto',
       currentPrice: chain.tokenPrice,
       orderBook: { bids: [], asks: [] },
-      history: generateMockHistory(chain.tokenPrice, 100),
+      history: generateMockHistory(chain.tokenPrice, 35),
       liquidity: 0.8
     };
   });
 
-  // 5. Predatory Hedge Funds ("Pattern-Hunting Wolves" of the dark liquidity pool)
+  // 5. Predatory Hedge Funds
   const hedgeFunds: HedgeFund[] = [
     { id: 'blackstone_shadow', name: 'Noxious Asset Capital', cash: 15000000000, positions: { 'APLH': 25000000, 'ETHP': 1500000 }, strategy: 'LongShort', leverage: 5, isWolf: true, dynastyEnemy: false },
     { id: 'vanguard_iron', name: 'IronClad Arbitrage Desk', cash: 25000000000, positions: { 'HELI': 30000000, 'SOLV': 5000000 }, strategy: 'Arbitrage', leverage: 3, isWolf: true, dynastyEnemy: false },
@@ -221,14 +260,10 @@ export function createInitialWorld(params: {
     { id: 'brussels_reg', name: 'DG Antitrust Oversight', type: 'Regulator', nation: 'EU', influenceCap: 100, fundingRequired: 60000000, playerControlWeight: 8 }
   ];
 
-  // Let core stability start healthy
-  const globalStability = 82;
-  const globalSuffering = 18;
-
   // Initial Diplomatic cables
   const cables = [
-    { time: '2026-06-08 12:55:00', source: 'APEX_INT', message: 'NSA Terminal Online. Access Granted. Operational Protocol: PROJECT OMEGA-ASCENSION initiated.', classification: 'EYES_ONLY' as const },
-    { time: '2026-06-08 12:55:01', source: 'FED_RESERVE', message: 'Notice: Shadow repo rates spiking in dark pool clearance networks. Liquidity tightness observed.', classification: 'CONFIDENTIAL' as const }
+    { time: '2026-06-08 12:55:00', source: 'BIO_COM', message: 'Sovereign Lab Terminal initialized. Cybernetic agricultural simulation online.', classification: 'EYES_ONLY' as const },
+    { time: '2026-06-08 12:55:01', source: 'FED_RESERVE', message: 'Sub-atmospheric futures (WETH-FUT) experiencing high option bidding density.', classification: 'CONFIDENTIAL' as const }
   ];
 
   const hiringPool = [
@@ -238,14 +273,43 @@ export function createInitialWorld(params: {
   ];
 
   const initialChatLogs = [
-    { sender: 'analyst' as const, timestamp: '12:55:00', text: 'Sovereign AI Terminal connection established. Welcome, Manager. Ready to run multi-billion capital desk.' }
+    { sender: 'analyst' as const, timestamp: '12:55:00', text: 'Black Rain Lab terminals synchronized. Weather radar is armed. Commodity futures metrics online.' }
   ];
+
+  // Starting Lab Structures configurations
+  const labStructures: LabStructure[] = [
+    { id: 'str_1', type: 'COMMAND_ROOM', x: 4, y: 3, level: 1, health: 100, powerUsage: 10, waterUsage: 2, lastTickActive: true },
+    { id: 'str_2', type: 'CROP_POD', x: 2, y: 2, level: 1, health: 100, powerUsage: 15, waterUsage: 25, lastTickActive: true },
+    { id: 'str_3', type: 'SERVER_RACK', x: 6, y: 2, level: 1, health: 100, powerUsage: 25, waterUsage: 5, lastTickActive: true },
+    { id: 'str_4', type: 'BIO_REACTOR', x: 3, y: 5, level: 1, health: 100, powerUsage: -40, waterUsage: 10, lastTickActive: true } // Negative power usage means it generates base power!
+  ];
+
+  // Starting Lab Staff
+  const labStaff: LaboratoryStaff[] = [
+    { id: 'stf_1', name: 'Mitch Miller', role: 'QUANT', salary: 120000, skill: 75, stress: 25, loyalty: 90, trait: 'Overclock Specialist' },
+    { id: 'stf_2', name: 'Dr. Sarah Rain', role: 'BIOLOGIST', salary: 95000, skill: 82, stress: 15, loyalty: 80, trait: 'Drought Synthesizer' },
+    { id: 'stf_3', name: 'Jax Spark', role: 'ENGINEER', salary: 85000, skill: 68, stress: 30, loyalty: 75, trait: 'Lightning Mitigator' }
+  ];
+
+  // Research tree initialization
+  const researchTree: Record<string, ResearchNode> = {
+    syntheticDroughtCrops: { id: 'syntheticDroughtCrops', name: 'Synthetic Drought Crops', cost: 200, unlocked: false, description: 'Soma-engineered seeds resistant to extreme Heat Domes.', benefits: ['Crops withstand HEAT_DOME damage by 50%', 'Boost agricultural futures trading margins'] },
+    floodResistantRoots: { id: 'floodResistantRoots', name: 'Flood-resistant Roots', cost: 350, unlocked: false, description: 'Hydro-repellent genetic structures that prevent flash flood rot.', benefits: ['Crops withstand FLASH_FLOOD damage by 70%'] },
+    weatherPredictionAI: { id: 'weatherPredictionAI', name: 'Weather Prediction AI', cost: 150, unlocked: false, description: 'Overlocked deep neural nets calculating atmospheric moisture vectors.', benefits: ['Advance warnings of anomalous climate impacts', 'Weather derivatives prediction boosts (+20% gains)'] },
+    atmosphericArbitrage: { id: 'atmosphericArbitrage', name: 'Atmospheric Arbitrage', cost: 400, unlocked: false, description: 'Deploy algorithmic high-frequency bots on real-time radar data feeds.', benefits: ['Automates WETH-FUT coverage hedging'] },
+    carbonCaptureScaling: { id: 'carbonCaptureScaling', name: 'Carbon Capture Scaling', cost: 300, unlocked: false, description: 'Graphene composite matrices filtering atmospheric CO2 directly.', benefits: ['Generates passive cash flow ($500K per CC structure per tick)'] },
+    autonomousLabDrones: { id: 'autonomousLabDrones', name: 'Autonomous Lab Drones', cost: 250, unlocked: false, description: 'Compact hovering repair nodes keeping sectors structural integrity intact.', benefits: ['Auto-repairs damaged lab equipment without requiring actions'] },
+    quantumVolatilityEngine: { id: 'quantumVolatilityEngine', name: 'Quantum Volatility Engine', cost: 500, unlocked: false, description: 'Predict and ride market shocks generated during massive weather panic cascades.', benefits: ['Yields large cash bonuses during extreme market crashes'] },
+    syntheticRainfall: { id: 'syntheticRainfall', name: 'Synthetic Rainfall Systems', cost: 600, unlocked: false, description: 'Silicate chemical rain seeding drones manipulated remotely.', benefits: ['Unlocks the Synthetic Rainfall operational control'] },
+    crisisTradingAlgorithms: { id: 'crisisTradingAlgorithms', name: 'Crisis Trading Algos', cost: 450, unlocked: false, description: 'Automatic short positions triggering upon major disaster detection.', benefits: ['Boost portfolio leverage options'] },
+    climateShield: { id: 'climateShield', name: 'Atmospheric Aegis Shield', cost: 1000, unlocked: false, description: 'Static electrostatic canopy fields blocking radioactive rains.', benefits: ['Prevents weather disaster room damage completely'] }
+  };
 
   return {
     currentTick: 0,
     date: '2026-06-08',
-    globalStability,
-    globalSuffering,
+    globalStability: 82,
+    globalSuffering: 18,
     careerStage: 'Family Office',
     highWaterMark: params.capital,
     shorts: {},
@@ -287,11 +351,29 @@ export function createInitialWorld(params: {
     influenceNodes,
     traumaLog: [],
     cables,
-    simulationSpeed: 0 // Game starts paused
+    simulationSpeed: 0,
+
+    // --- NEW LAB PARAMS SEEDING ---
+    biomass: 500,
+    labPowerMax: 100,
+    labPowerUsed: 50,
+    labWaterMax: 100,
+    labWaterUsed: 42,
+    cropHealth: 95,
+    weatherThreat: 10,
+    regulatoryHeat: 15,
+    reputation: 60,
+    currentWeather: 'CLEAR',
+    weatherTicksRemaining: 0,
+    floodLevel: 0,
+    labStructures,
+    researchTree,
+    labStaff,
+    researchPoints: 50
   };
 }
 
-// Generate starting random history for high quality visualization
+// Generate starting random history
 function generateMockHistory(startPrice: number, points: number) {
   const history: HistoryPoint[] = [];
   let current = startPrice;
@@ -322,10 +404,33 @@ function generateMockHistory(startPrice: number, points: number) {
   return history;
 }
 
+// Pruning helper to strictly avoid LocalStorage over quota
+function pruneStateSize(state: SimState): SimState {
+  const cloned = JSON.parse(JSON.stringify(state));
+  if (cloned.markets) {
+    Object.keys(cloned.markets).forEach(k => {
+      if (cloned.markets[k]?.history && cloned.markets[k].history.length > 25) {
+        cloned.markets[k].history = cloned.markets[k].history.slice(-25);
+      }
+    });
+  }
+  if (cloned.cables && cloned.cables.length > 20) {
+    cloned.cables = cloned.cables.slice(-20);
+  }
+  if (cloned.traumaLog && cloned.traumaLog.length > 15) {
+    cloned.traumaLog = cloned.traumaLog.slice(-15);
+  }
+  if (cloned.chatLogs && cloned.chatLogs.length > 15) {
+    cloned.chatLogs = cloned.chatLogs.slice(-15);
+  }
+  return cloned;
+}
+
 // Save & Load state to storage
 export function saveSimState(state: SimState, saveName: string = 'omega_autosave') {
   try {
-    localStorage.setItem(saveName, JSON.stringify(state));
+    const pruned = pruneStateSize(state);
+    localStorage.setItem(saveName, JSON.stringify(pruned));
     return true;
   } catch (e) {
     console.error('Failed to save state:', e);
@@ -339,41 +444,49 @@ export function loadSimState(saveName: string = 'omega_autosave'): SimState | nu
     if (!raw) return null;
     const loaded = JSON.parse(raw);
     if (loaded) {
-      if (!loaded.hiredAnalysts) loaded.hiredAnalysts = [];
-      if (!loaded.hiringPool) {
-        loaded.hiringPool = [
-          { id: 'al_1', name: 'Dominik Vance', salary: 150000, specialty: 'AI & Semiconductors Quant', tier: 'Senior' },
-          { id: 'al_2', name: 'Sophia Sterling', salary: 80000, specialty: 'Macro Sovereign Bonds', tier: 'Associate' },
-          { id: 'al_3', name: 'Dr. Evelyn Biotech', salary: 120000, specialty: 'Transgenic Eugenics & Pharma', tier: 'VP' }
+      // Ensure missing climate specific arrays and objects fallback nicely
+      if (loaded.biomass === undefined) loaded.biomass = 500;
+      if (loaded.labPowerMax === undefined) loaded.labPowerMax = 100;
+      if (loaded.labPowerUsed === undefined) loaded.labPowerUsed = 50;
+      if (loaded.labWaterMax === undefined) loaded.labWaterMax = 100;
+      if (loaded.labWaterUsed === undefined) loaded.labWaterUsed = 42;
+      if (loaded.cropHealth === undefined) loaded.cropHealth = 95;
+      if (loaded.weatherThreat === undefined) loaded.weatherThreat = 12;
+      if (loaded.regulatoryHeat === undefined) loaded.regulatoryHeat = 15;
+      if (loaded.reputation === undefined) loaded.reputation = 60;
+      if (loaded.currentWeather === undefined) loaded.currentWeather = 'CLEAR';
+      if (loaded.weatherTicksRemaining === undefined) loaded.weatherTicksRemaining = 0;
+      if (loaded.floodLevel === undefined) loaded.floodLevel = 0;
+      if (loaded.researchPoints === undefined) loaded.researchPoints = 50;
+
+      if (!loaded.labStructures) {
+        loaded.labStructures = [
+          { id: 'str_1', type: 'COMMAND_ROOM', x: 4, y: 3, level: 1, health: 100, powerUsage: 10, waterUsage: 2, lastTickActive: true },
+          { id: 'str_2', type: 'CROP_POD', x: 2, y: 2, level: 1, health: 100, powerUsage: 15, waterUsage: 25, lastTickActive: true },
+          { id: 'str_3', type: 'SERVER_RACK', x: 6, y: 2, level: 1, health: 100, powerUsage: 25, waterUsage: 5, lastTickActive: true },
+          { id: 'str_4', type: 'BIO_REACTOR', x: 3, y: 5, level: 1, health: 100, powerUsage: -40, waterUsage: 10, lastTickActive: true }
         ];
       }
-      if (!loaded.shorts) loaded.shorts = {};
-      if (!loaded.chatLogs) {
-        loaded.chatLogs = [
-          { sender: 'analyst', timestamp: '12:55:00', text: 'Sovereign AI Terminal connection established. Welcome, Manager.' }
+      if (!loaded.labStaff) {
+        loaded.labStaff = [
+          { id: 'stf_1', name: 'Mitch Miller', role: 'QUANT', salary: 120000, skill: 75, stress: 25, loyalty: 90, trait: 'Overclock Specialist' },
+          { id: 'stf_2', name: 'Dr. Sarah Rain', role: 'BIOLOGIST', salary: 95000, skill: 82, stress: 15, loyalty: 80, trait: 'Drought Synthesizer' },
+          { id: 'stf_3', name: 'Jax Spark', role: 'ENGINEER', salary: 85000, skill: 68, stress: 30, loyalty: 75, trait: 'Lightning Mitigator' }
         ];
       }
-      if (!loaded.lastDailyReturns) loaded.lastDailyReturns = [0.015, -0.005, 0.02, 0.01];
-      if (!loaded.benchmarkReturns) loaded.benchmarkReturns = [0.005, -0.002, 0.003, 0.008];
-      if (!loaded.highWaterMark) loaded.highWaterMark = loaded.player?.cash || 100000000;
-      if (!loaded.careerStage) loaded.careerStage = 'Family Office';
-      if (!loaded.cables) loaded.cables = [];
-      if (!loaded.traumaLog) loaded.traumaLog = [];
-      if (loaded.player) {
-        if (!loaded.player.assets) {
-          loaded.player.assets = {
-            stocks: {},
-            crypto: {},
-            bonds: {},
-            lobbyists: 0,
-            analysts: 0,
-            informants: 0
-          };
-        } else {
-          if (!loaded.player.assets.stocks) loaded.player.assets.stocks = {};
-          if (!loaded.player.assets.crypto) loaded.player.assets.crypto = {};
-          if (!loaded.player.assets.bonds) loaded.player.assets.bonds = {};
-        }
+      if (!loaded.researchTree) {
+        loaded.researchTree = {
+          syntheticDroughtCrops: { id: 'syntheticDroughtCrops', name: 'Synthetic Drought Crops', cost: 200, unlocked: false, description: 'Soma-engineered seeds resistant to extreme Heat Domes.', benefits: ['Crops withstand HEAT_DOME damage by 50%', 'Boost agricultural futures trading margins'] },
+          floodResistantRoots: { id: 'floodResistantRoots', name: 'Flood-resistant Roots', cost: 350, unlocked: false, description: 'Hydro-repellent genetic structures that prevent flash flood rot.', benefits: ['Crops withstand FLASH_FLOOD damage by 70%'] },
+          weatherPredictionAI: { id: 'weatherPredictionAI', name: 'Weather Prediction AI', cost: 150, unlocked: false, description: 'Overlocked deep neural nets calculating atmospheric moisture vectors.', benefits: ['Advance warnings of anomalous climate impacts', 'Weather derivatives prediction boosts (+20% gains)'] },
+          atmosphericArbitrage: { id: 'atmosphericArbitrage', name: 'Atmospheric Arbitrage', cost: 400, unlocked: false, description: 'Deploy algorithmic high-frequency bots on real-time radar data feeds.', benefits: ['Automates WETH-FUT coverage hedging'] },
+          carbonCaptureScaling: { id: 'carbonCaptureScaling', name: 'Carbon Capture Scaling', cost: 300, unlocked: false, description: 'Graphene composite matrices filtering atmospheric CO2 directly.', benefits: ['Generates passive cash flow ($500K per CC structure per tick)'] },
+          autonomousLabDrones: { id: 'autonomousLabDrones', name: 'Autonomous Lab Drones', cost: 250, unlocked: false, description: 'Compact hovering repair nodes keeping sectors structural integrity intact.', benefits: ['Auto-repairs damaged lab equipment without requiring actions'] },
+          quantumVolatilityEngine: { id: 'quantumVolatilityEngine', name: 'Quantum Volatility Engine', cost: 500, unlocked: false, description: 'Predict and ride market shocks generated during massive weather panic cascades.', benefits: ['Yields large cash bonuses during extreme market crashes'] },
+          syntheticRainfall: { id: 'syntheticRainfall', name: 'Synthetic Rainfall Systems', cost: 600, unlocked: false, description: 'Silicate chemical rain seeding drones manipulated remotely.', benefits: ['Unlocks the Synthetic Rainfall operational control'] },
+          crisisTradingAlgorithms: { id: 'crisisTradingAlgorithms', name: 'Crisis Trading Algos', cost: 450, unlocked: false, description: 'Automatic short positions triggering upon major disaster detection.', benefits: ['Boost portfolio leverage options'] },
+          climateShield: { id: 'climateShield', name: 'Atmospheric Aegis Shield', cost: 1000, unlocked: false, description: 'Static electrostatic canopy fields blocking radioactive rains.', benefits: ['Prevents weather disaster room damage completely'] }
+        };
       }
     }
     return loaded;

@@ -11,6 +11,9 @@ import { IntelligencePanel } from './components/IntelligencePanel';
 import { CharacterCreator } from './components/CharacterCreator';
 import { FundOpsPanel } from './components/FundOpsPanel';
 import { MarketsHeatmap } from './components/MarketsHeatmap';
+import { LabMapView } from './components/LabMapView';
+import { ResearchPanel } from './components/ResearchPanel';
+import { StaffPanel } from './components/StaffPanel';
 import { playSyntheticSound } from './utils/audio';
 import { 
   Skull, 
@@ -31,12 +34,15 @@ import {
   Award,
   BookOpen,
   PieChart,
-  DollarSign
+  DollarSign,
+  Cpu,
+  FlaskConical,
+  Users
 } from 'lucide-react';
 
 export default function App() {
   const [gameState, setGameState] = useState<SimState | null>(null);
-  const [activeTab, setActiveTab] = useState<'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS'>('TRADING');
+  const [activeTab, setActiveTab] = useState<'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS'>('LAB_VIEW');
   const [selectedTicker, setSelectedTicker] = useState('APLH');
   
   // CLI State
@@ -61,6 +67,15 @@ export default function App() {
   // Track Career Stage to trigger transition animation
   const [prevStage, setPrevStage] = useState<string>('Family Office');
   const [showLevelUpCelebration, setShowLevelUpCelebration] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
+
+  // Auto-revert reset confirmation after 3 seconds
+  useEffect(() => {
+    if (resetConfirm) {
+      const timer = setTimeout(() => setResetConfirm(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [resetConfirm]);
 
   // Initialize from LocalStorage autosave or direct onboard creator
   useEffect(() => {
@@ -424,6 +439,13 @@ export default function App() {
     }
   };
 
+  const onModifySomaticState = (modifier: (prev: SimState) => SimState) => {
+    setGameState((prev) => {
+      if (!prev) return null;
+      return modifier({ ...prev });
+    });
+  };
+
   // Fund Ops analyst hires
   const handleHireAnalyst = (id: string, salary: number) => {
     setGameState((prev) => {
@@ -513,35 +535,47 @@ export default function App() {
     }
 
     // Tab navigation keys
-    if (cmd === 'F2' || cmd === 'F2 <GO>' || cmd === 'EQUITY' || cmd === 'EQUITY <GO>') {
+    if (cmd === 'F2' || cmd === 'F2 <GO>' || cmd === 'LAB' || cmd === 'LAB <GO>') {
+      setActiveTab('LAB_VIEW');
+      return;
+    }
+    if (cmd === 'F3' || cmd === 'F3 <GO>' || cmd === 'RESEARCH' || cmd === 'RESEARCH <GO>') {
+      setActiveTab('RESEARCH');
+      return;
+    }
+    if (cmd === 'F4' || cmd === 'F4 <GO>' || cmd === 'STAFF' || cmd === 'STAFF <GO>') {
+      setActiveTab('STAFF');
+      return;
+    }
+    if (cmd === 'F5' || cmd === 'F5 <GO>' || cmd === 'EQUITY' || cmd === 'EQUITY <GO>' || cmd === 'TRADING' || cmd === 'TRADE') {
       setActiveTab('TRADING');
       return;
     }
-    if (cmd === 'F3' || cmd === 'F3 <GO>' || cmd === 'CORP' || cmd === 'CORP <GO>') {
+    if (cmd === 'F6' || cmd === 'F6 <GO>' || cmd === 'CORP' || cmd === 'CORP <GO>') {
       setActiveTab('CORPORATE');
       return;
     }
-    if (cmd === 'F4' || cmd === 'F4 <GO>' || cmd === 'GOV' || cmd === 'GOV <GO>' || cmd === 'GOVT' || cmd === 'GOVT <GO>') {
+    if (cmd === 'F7' || cmd === 'F7 <GO>' || cmd === 'GOV' || cmd === 'GOV <GO>' || cmd === 'GOVT' || cmd === 'GOVT <GO>') {
       setActiveTab('MACRO');
       return;
     }
-    if (cmd === 'F5' || cmd === 'F5 <GO>' || cmd === 'LOBBY' || cmd === 'LOBBY <GO>' || cmd === 'INFLUENCE' || cmd === 'INFLUENCE <GO>') {
+    if (cmd === 'F8' || cmd === 'F8 <GO>' || cmd === 'LOBBY' || cmd === 'LOBBY <GO>' || cmd === 'INFLUENCE' || cmd === 'INFLUENCE <GO>') {
       setActiveTab('INFLUENCE');
       return;
     }
-    if (cmd === 'F6' || cmd === 'F6 <GO>' || cmd === 'FOUND' || cmd === 'FOUND <GO>' || cmd === 'DYNASTY' || cmd === 'DYNASTY <GO>') {
+    if (cmd === 'F9' || cmd === 'F9 <GO>' || cmd === 'FOUND' || cmd === 'FOUND <GO>' || cmd === 'DYNASTY' || cmd === 'DYNASTY <GO>') {
       setActiveTab('DYNASTY');
       return;
     }
-    if (cmd === 'F7' || cmd === 'F7 <GO>' || cmd === 'INTEL' || cmd === 'INTEL <GO>') {
+    if (cmd === 'F10' || cmd === 'F10 <GO>' || cmd === 'INTEL' || cmd === 'INTEL <GO>') {
       setActiveTab('INTELLIGENCE');
       return;
     }
-    if (cmd === 'F8' || cmd === 'F8 <GO>' || cmd === 'OPER' || cmd === 'OPER <GO>' || cmd === 'OPERATION' || cmd === 'OPERATION <GO>') {
+    if (cmd === 'F11' || cmd === 'F11 <GO>' || cmd === 'OPER' || cmd === 'OPER <GO>' || cmd === 'OPERATION' || cmd === 'OPERATION <GO>') {
       setActiveTab('OPERATION');
       return;
     }
-    if (cmd === 'F9' || cmd === 'F9 <GO>' || cmd === 'MKT' || cmd === 'MKT <GO>' || cmd === 'MARKET' || cmd === 'MARKET <GO>' || cmd === 'MARKETS' || cmd === 'MARKETS <GO>') {
+    if (cmd === 'F12' || cmd === 'F12 <GO>' || cmd === 'MKT' || cmd === 'MKT <GO>' || cmd === 'MARKET' || cmd === 'MARKET <GO>' || cmd === 'MARKETS' || cmd === 'MARKETS <GO>') {
       setActiveTab('MARKETS');
       return;
     }
@@ -703,29 +737,81 @@ export default function App() {
     <div className="h-screen w-screen bg-[#0a0c0f] text-[#e8edf5] font-sans text-xs overflow-hidden flex flex-col relative select-none">
       
       {/* 1. UPGRADED TOP BAR PANEL */}
-      <header className="h-[38px] bg-[#0f1318] border-b border-[#1e2535] flex items-center justify-between px-3 z-10 shrink-0 select-none">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-[#00c2ff]" />
-          <span className="font-display font-bold tracking-tight uppercase text-xs text-white">GLOBAL SOVEREIGN TERMINAL</span>
+      <header className="min-h-[46px] bg-[#0a0f14] border-b border-[#1e2535] flex flex-wrap items-center justify-between px-3.5 py-1 z-10 shrink-0 select-none gap-2">
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 bg-red-500 animate-ping rounded-full shrink-0" />
+          <div className="flex flex-col leading-none">
+            <span className="font-display font-black tracking-tight text-white uppercase text-[10px]">BLOOMI</span>
+            <span className="text-[#00c2ff] font-mono font-bold text-[8.5px] uppercase tracking-wider block mt-0.5">BLACK RAIN SINGULARITY</span>
+          </div>
         </div>
 
         {/* Global Net fund information indicators */}
-        <div className="flex items-center gap-4 text-[10.5px]">
-          <div>AUM: <span className="text-[#00ff88] font-bold font-terminal">${portfolioAUM.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
-          <div>DLY P&L: <span className={`font-bold font-terminal ${pnlPercent >= 0 ? 'text-[#00ff88]' : 'text-[#ff3b5c]'}`}>{pnlPercent >= 0 ? '+' : ''}{pnlPercent.toFixed(2)}%</span></div>
-          <div className="flex items-center gap-1">
-            <span className="bg-[#00ff88]/15 text-[#00ff88] border border-[#00ff88]/30 px-1 py-0.2 rounded-terminal text-[8px] font-bold uppercase animate-pulse">MARKETS OPEN</span>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[10.5px] font-mono">
+          <div>AUM: <span className="text-[#00ff88] font-black">${portfolioAUM.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span></div>
+          <div>CASH: <span className="text-slate-300 font-bold">${gameState.player.cash.toLocaleString()}</span></div>
+          <div className="h-4 w-px bg-slate-850" />
+          
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400">BIOMASS:</span> 
+            <span className="text-[#00ff88] font-black">{gameState.biomass || 0} CORE</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400">POWER:</span>
+            <span className={`font-bold ${gameState.labPowerUsed > gameState.labPowerMax ? 'text-red-400 animate-pulse' : 'text-slate-200'}`}>
+              {gameState.labPowerUsed || 0} / {gameState.labPowerMax || 100} MW
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400">CROPS:</span>
+            <span className="text-emerald-400 font-bold">{gameState.cropHealth ?? 100}%</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400">HEAT:</span>
+            <span className={`font-bold ${gameState.regulatoryHeat > 60 ? 'text-red-400 animate-pulse' : 'text-[#00c2ff]'}`}>
+              {gameState.regulatoryHeat ?? 0}%
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400">THREAT:</span>
+            <span className={`font-bold ${gameState.currentWeather !== 'CLEAR' ? 'text-red-500 animate-bounce' : 'text-slate-400'}`}>
+              {gameState.currentWeather !== 'CLEAR' ? gameState.currentWeather : `${(gameState.weatherThreat ?? 0).toFixed(0)}%`}
+            </span>
           </div>
         </div>
 
         {/* Calendar and speed multi-controls */}
-        <div className="flex items-center gap-3 text-[10px] text-slate-300">
-          <div>TICK: <span className="text-[#00c2ff] font-bold font-terminal">{gameState.currentTick}</span></div>
-          <div>DATE: <span className="text-white font-terminal">{gameState.date}</span></div>
+        <div className="flex items-center gap-3.5 text-[10px] text-slate-300 font-mono">
+          <div>TICK: <span className="text-[#00c2ff] font-bold">{gameState.currentTick}</span></div>
+          <div>DATE: <span className="text-white font-bold">{gameState.date}</span></div>
           <div className="flex items-center gap-1.5">
             <button 
+              onClick={() => {
+                if (!resetConfirm) {
+                  setResetConfirm(true);
+                  playSyntheticSound('tick');
+                } else {
+                  localStorage.removeItem('omega_autosave');
+                  setGameState(null);
+                  setResetConfirm(false);
+                  playSyntheticSound('warning');
+                }
+              }} 
+              className={`px-2 py-0.5 border text-[9px] cursor-pointer font-bold rounded-terminal uppercase transition-all duration-100 ${
+                resetConfirm 
+                  ? 'bg-red-600 text-white border-red-700 animate-pulse' 
+                  : 'border-red-900 text-red-500 hover:bg-red-950/30'
+              }`}
+            >
+              {resetConfirm ? 'CONFIRM RESET?' : 'RESET'}
+            </button>
+            <button 
               onClick={() => { setIsPaused(!isPaused); playSyntheticSound('tick'); }} 
-              className={`px-1.5 py-0.5 border text-[9px] cursor-pointer font-bold rounded-terminal uppercase ${isPaused ? 'border-[#00ff88] text-[#00ff88] bg-[#00ff88]/10' : 'border-slate-500 text-slate-300'}`}
+              className={`px-2 py-0.5 border text-[9px] cursor-pointer font-bold rounded-terminal uppercase transition-all duration-100 ${isPaused ? 'border-[#00ff88] text-[#00ff88] bg-[#00ff88]/10' : 'border-slate-500 text-slate-300'}`}
             >
               {isPaused ? 'HALTED' : 'RUNNING'}
             </button>
@@ -757,14 +843,17 @@ export default function App() {
             <div className="grid grid-cols-2 gap-1.5 font-terminal">
               {[
                 { id: 'HELP' as const, key: 'F1', label: 'HELP_DESK', icon: Sparkles },
-                { id: 'TRADING' as const, key: 'F2', label: 'EQTY_TRADE', icon: TrendingUp },
-                { id: 'CORPORATE' as const, key: 'F3', label: 'CORP_OP', icon: Briefcase },
-                { id: 'MACRO' as const, key: 'F4', label: 'GOVT_BNDS', icon: Globe },
-                { id: 'INFLUENCE' as const, key: 'F5', label: 'SHDW_LOBBY', icon: Network },
-                { id: 'DYNASTY' as const, key: 'F6', label: 'DYNA_GENE', icon: Award },
-                { id: 'INTELLIGENCE' as const, key: 'F7', label: 'INTEL_DIV', icon: Skull },
-                { id: 'OPERATION' as const, key: 'F8', label: 'FUND_OPS', icon: PieChart },
-                { id: 'MARKETS' as const, key: 'F9', label: 'MKT_GRID', icon: Layers }
+                { id: 'LAB_VIEW' as const, key: 'F2', label: 'LAB_MAP', icon: Cpu },
+                { id: 'RESEARCH' as const, key: 'F3', label: 'RESEARCH', icon: FlaskConical },
+                { id: 'STAFF' as const, key: 'F4', label: 'STAFF_DIV', icon: Users },
+                { id: 'TRADING' as const, key: 'F5', label: 'EQTY_TRADE', icon: TrendingUp },
+                { id: 'CORPORATE' as const, key: 'F6', label: 'CORP_OP', icon: Briefcase },
+                { id: 'MACRO' as const, key: 'F7', label: 'GOVT_BNDS', icon: Globe },
+                { id: 'INFLUENCE' as const, key: 'F8', label: 'SHDW_LOBBY', icon: Network },
+                { id: 'DYNASTY' as const, key: 'F9', label: 'DYNA_GENE', icon: Award },
+                { id: 'INTELLIGENCE' as const, key: 'F10', label: 'INTEL_DIV', icon: Skull },
+                { id: 'OPERATION' as const, key: 'F11', label: 'FUND_OPS', icon: PieChart },
+                { id: 'MARKETS' as const, key: 'F12', label: 'MKT_GRID', icon: Layers }
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
@@ -870,6 +959,33 @@ export default function App() {
         <div className="flex-1 flex flex-col overflow-hidden z-20 border-r border-[#1e2535] bg-[#0a0c0f]">
           {/* Tab contents visual container */}
           <div className="flex-1 overflow-hidden bg-[#0a0c0f] p-2">
+            {activeTab === 'LAB_VIEW' && (
+              <LabMapView
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
+            )}
+
+            {activeTab === 'RESEARCH' && (
+              <ResearchPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
+            )}
+
+            {activeTab === 'STAFF' && (
+              <StaffPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
+            )}
+
             {activeTab === 'HELP' && (
               <div className="p-3 flex flex-col gap-2.5 overflow-y-auto h-full font-mono text-xs select-none bg-[#0f1318] border border-[#1e2535] rounded-terminal text-[#00c2ff]">
                 <h2 className="text-[#00c2ff] font-display font-medium text-sm tracking-tight border-b border-[#1e2535] pb-1.5">

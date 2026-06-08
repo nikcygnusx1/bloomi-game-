@@ -7,7 +7,7 @@ export interface CentralBank {
   rate: number;
   balanceSheet: number;
   liquidityInjection: number;
-  printingPressOverride: boolean; // Captured & overriding
+  printingPressOverride: boolean;
 }
 
 export interface TaxRates {
@@ -32,7 +32,7 @@ export interface Country {
   budget: number;
   opinionOfPlayer: number; // 0 to 100
   centralBank: CentralBank;
-  capturedLobbyFraction: number; // 0.0 to 1.0 (>=0.80 unlocks printing press)
+  capturedLobbyFraction: number;
 }
 
 export interface BoardMember {
@@ -44,7 +44,7 @@ export interface Company {
   id: string;
   name: string;
   ticker: string;
-  industry: 'AI' | 'Energy' | 'Defense' | 'Logistics' | 'Banking' | 'Media' | 'Healthcare';
+  industry: 'AI' | 'Energy' | 'Defense' | 'Logistics' | 'Banking' | 'Media' | 'Healthcare' | 'Agriculture';
   country: string;
   sharesOutstanding: number;
   sharePrice: number;
@@ -55,7 +55,7 @@ export interface Company {
   expenses: number;
   profit: number;
   board: BoardMember[];
-  shareholders: Record<string, number>; // shareholder ID -> shares
+  shareholders: Record<string, number>;
   layoffsPercentage: number;
 }
 
@@ -84,7 +84,7 @@ export interface HistoryPoint {
 
 export interface Market {
   ticker: string;
-  type: 'equity' | 'crypto';
+  type: 'equity' | 'crypto' | 'commodity' | 'derivative';
   currentPrice: number;
   orderBook: OrderBook;
   history: HistoryPoint[];
@@ -107,10 +107,10 @@ export interface HedgeFund {
   id: string;
   name: string;
   cash: number;
-  positions: Record<string, number>; // ticker -> shares/tokens
+  positions: Record<string, number>;
   strategy: 'Arbitrage' | 'LongShort' | 'Distressed' | 'Vampire';
   leverage: number;
-  isWolf: boolean; // Pattern-hunting wolf AI active
+  isWolf: boolean;
   dynastyEnemy: boolean;
 }
 
@@ -121,23 +121,23 @@ export interface InfluenceNode {
   nation: string;
   influenceCap: number;
   fundingRequired: number;
-  playerControlWeight: number; // 0 to 100
+  playerControlWeight: number;
 }
 
 export interface DynastyMember {
   name: string;
-  role: 'Head of Dynasty' | 'Heir' | 'Operative' | 'Lobbyist_Chief';
+  role: 'Head of Dynasty' | 'Heir' | 'Operative' | 'Lobbyist_Chief' | 'Lead_Biologist' | 'Quant_General';
   age: number;
   status: 'Alive' | 'Deceased';
   sociopathyIndex: number; // 0 to 100
-  geneticEdits: string[]; // somatic edits like "Amoral Brainstem", "Sovereign Charisma", etc.
+  geneticEdits: string[];
 }
 
 export interface TraumaLog {
   id: string;
   tick: number;
   date: string;
-  eventType: 'MARKET_CRASH' | 'WAR' | 'REVOLUTION' | 'COGNITIVE_WAR' | 'EUGENICS_EXP';
+  eventType: 'MARKET_CRASH' | 'WAR' | 'REVOLUTION' | 'COGNITIVE_WAR' | 'EUGENICS_EXP' | 'WEATHER_DISASTER' | 'LAB_EXPLOSION' | 'REGULATORY_RAID';
   description: string;
   severity: number; // 1 to 10
 }
@@ -149,12 +149,47 @@ export interface CableLog {
   classification: 'CONFIDENTIAL' | 'SECRET' | 'TOP_SECRET' | 'EYES_ONLY';
 }
 
+// Laboratory Grid Element
+export interface LabStructure {
+  id: string;
+  type: 'CROP_POD' | 'GENE_CHAMBER' | 'WEATHER_RADAR' | 'CARBON_CAPTURE' | 'TRADING_TERM' | 'SERVER_RACK' | 'STORM_SIMULATOR' | 'BIO_REACTOR' | 'DRONE_BAY' | 'QUARANTINE' | 'COMMAND_ROOM' | 'CLIMATE_ENGINE';
+  x: number;
+  y: number;
+  level: number;
+  health: number; // 0 to 100
+  powerUsage: number; // MW
+  waterUsage: number; // Litres/sec
+  lastTickActive: boolean;
+}
+
+// Research Path Node
+export interface ResearchNode {
+  id: string;
+  name: string;
+  cost: number; // Biomass cost
+  unlocked: boolean;
+  description: string;
+  benefits: string[];
+}
+
+// Specialized staff member
+export interface LaboratoryStaff {
+  id: string;
+  name: string;
+  role: 'QUANT' | 'METEOROLOGIST' | 'BIOLOGIST' | 'ENGINEER' | 'SECURITY' | 'LOBBYIST' | 'SPY' | 'DISASTER_CREW';
+  salary: number; // Cash cost per tick/week
+  skill: number; // 0 to 100
+  stress: number; // 0 to 100
+  loyalty: number; // 0 to 100
+  trait: string;
+}
+
 export interface SimState {
   currentTick: number;
-  date: string; // Date string
-  globalStability: number; // 0 to 100 base
-  globalSuffering: number; // 0 to 100 base (Genetic capital ignores debuffs from high Global Suffering)
-  careerStage: 'Family Office' | 'Emerging Manager' | 'Institutional Titan';
+  date: string;
+  globalStability: number;
+  globalSuffering: number;
+  careerStage: 'Family Office' | 'Emerging Manager' | 'Institutional Titan' | 'Singularity Core';
   highWaterMark: number;
   shorts: Record<string, { qty: number; avgPrice: number }>;
   leverageEnabled: boolean;
@@ -182,7 +217,7 @@ export interface SimState {
     assets: {
       stocks: Record<string, number>;
       crypto: Record<string, number>;
-      bonds: Record<string, number>; // CountryID -> debt value held
+      bonds: Record<string, number>;
       lobbyists: number;
       analysts: number;
       informants: number;
@@ -201,5 +236,23 @@ export interface SimState {
   influenceNodes: InfluenceNode[];
   traumaLog: TraumaLog[];
   cables: CableLog[];
-  simulationSpeed: number; // 0 (pause), 1 (1x), 5 (5x), 10 (10x)
+  simulationSpeed: number;
+
+  // --- NEW BLACK RAIN CLIMATE LABORATORY STATE VARIABLES ---
+  biomass: number; // Genetic capital
+  labPowerMax: number; // Total MW capacity
+  labPowerUsed: number;
+  labWaterMax: number;
+  labWaterUsed: number;
+  cropHealth: number; // 0 to 100 metric
+  weatherThreat: number; // 0 to 100 threat score
+  regulatoryHeat: number; // 0 to 100 risk of raid
+  reputation: number; // 0 to 100 world faction score
+  currentWeather: 'CLEAR' | 'BLACK_RAIN' | 'ACID_FOG' | 'FLASH_FLOOD' | 'HEAT_DOME' | 'LIGHTNING_STORM' | 'CROP_BLIGHT' | 'GRID_COLLAPSE' | 'MONSOON_BREACH' | 'ATMOSPHERIC_ANOMALY';
+  weatherTicksRemaining: number;
+  floodLevel: number; // Global floor water percentage
+  labStructures: LabStructure[];
+  researchTree: Record<string, ResearchNode>;
+  labStaff: LaboratoryStaff[];
+  researchPoints: number; // general tech levels
 }
