@@ -20,6 +20,8 @@ import { BloomiSingularityCore } from './components/BloomiSingularityCore';
 import { OrbitalRadarPanel } from './components/OrbitalRadarPanel';
 import { IntrusionTraceConsole } from './components/IntrusionTraceConsole';
 import { BloomiTradingTerminal } from './components/BloomiTradingTerminal';
+import { BunkerPanel } from './components/BunkerPanel';
+import { CodexTerminal } from './components/CodexTerminal';
 import { 
   Skull, 
   Activity, 
@@ -60,10 +62,15 @@ export default function App() {
       return valueOrUpdater;
     });
   }, []);
-  const [activeTab, setActiveTab] = useState<'WORLD' | 'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS' | 'AI_WAR' | 'SATELLITES' | 'DEBT' | 'SUPPLY_CHAINS' | 'SINGULARITY'>('SINGULARITY');
+  const [activeTab, setActiveTab] = useState<'WORLD' | 'LAB_VIEW' | 'RESEARCH' | 'STAFF' | 'HELP' | 'TRADING' | 'CORPORATE' | 'MACRO' | 'INFLUENCE' | 'DYNASTY' | 'INTELLIGENCE' | 'OPERATION' | 'MARKETS' | 'AI_WAR' | 'SATELLITES' | 'DEBT' | 'SUPPLY_CHAINS' | 'SINGULARITY' | 'BUNKER' | 'CODEX' | 'COLLIDER'>('SINGULARITY');
   const [selectedTicker, setSelectedTicker] = useState('APLH');
   const [selectedRegionId, setSelectedRegionId] = useState<string>('US');
   
+  // Interactive full Bloomberg workstation startup sequence states (Section 6.3)
+  const [bootStep, setBootStep] = useState(0); // 0 = booting, 1 = mainframe
+  const [bootProgress, setBootProgress] = useState(0);
+  const [bootLogs, setBootLogs] = useState<string[]>([]);
+
   // Biometric Pulse tracking
   const [mouseSpeed, setMouseSpeed] = useState(0);
   const lastMousePos = useRef({ x: 0, y: 0, time: Date.now() });
@@ -83,6 +90,59 @@ export default function App() {
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
+
+  // Simulation boot sequence timer on initial page load (Section 6.3)
+  useEffect(() => {
+    if (bootStep === 0) {
+      const logs = [
+        'INJECTING PORT 3000 SANDBOX TELEMETRY INTERFACE...',
+        'CONNECTING CONTROLS TO BLOOMI SYNDICATE DIRECTIVES...',
+        'INITIALIZING SECTOR COGNITIVE MEMORY SECTORS...',
+        'ESTABLISHING ENHANCED LIQUID COV-FUNDS MATRIX...',
+        'SECURING PROTOCOL CONNECTIONS WITH OMEGA RADAR...',
+        'MOUNTING DIRECT LINEAGE GENOME ORCHESTRATORS...',
+        'FIRING CERN HADRON LEPTON RESONANCE RING...',
+        'DECRYPTING CLASSIFIED INTEL CORE DATABASE CODEX...',
+        'INTEL MATRIX DEPLOYED. ENFORCING TRANSITION LAUNCH.'
+      ];
+      
+      let currentProgress = 0;
+      let logIndex = 0;
+      const progressInterval = setInterval(() => {
+        currentProgress += Math.floor(Math.random() * 8) + 4;
+        if (currentProgress >= 100) {
+          currentProgress = 100;
+          clearInterval(progressInterval);
+          setTimeout(() => {
+            setBootStep(1);
+            playSyntheticSound('open');
+          }, 450);
+        }
+        setBootProgress(currentProgress);
+        
+        const targetLogIndex = Math.floor((currentProgress / 105) * logs.length);
+        if (targetLogIndex > logIndex && logIndex < logs.length) {
+          setBootLogs(prev => [...prev, `[${currentProgress}%] ${logs[logIndex]}`]);
+          logIndex++;
+          playSyntheticSound('tick');
+        }
+      }, 70);
+      
+      return () => clearInterval(progressInterval);
+    }
+  }, [bootStep]);
+
+  // System-wide F1-F12 standard physical key intercepts (Section 6.5)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key.match(/^F(1[0-2]|[1-9])$/)) {
+        e.preventDefault();
+        executeUnifiedCommand(`${e.key} <GO>`);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState]);
 
   // CLI State
   const [cliInput, setCliInput] = useState('');
@@ -608,72 +668,112 @@ export default function App() {
     logToTerminal(`BBG> ${rawString}`);
     playSyntheticSound('tick');
 
-    // Help guides
-    if (cmd === 'HELP' || cmd === 'HELP <GO>' || cmd === '/HELP' || cmd === 'F1' || cmd === 'F1 <GO>') {
+    // New Bloomberg Keyboard Function Keys (Section 2.1 & 6.5)
+    if (cmd === 'F1' || cmd === 'F1 <GO>') {
+      setActiveTab('LAB_VIEW');
+      logToTerminal('COMMAND DESK: LOADED F1 [LAB_VIEW] CLIMATE GENOMIC CORED MAPS.');
+      return;
+    }
+    if (cmd === 'F2' || cmd === 'F2 <GO>') {
+      setActiveTab('MACRO');
+      logToTerminal('COMMAND DESK: LOADED F2 [MACRO] GLOBAL MACRO SANCTION DESK.');
+      return;
+    }
+    if (cmd === 'F3' || cmd === 'F3 <GO>') {
+      setActiveTab('DEBT');
+      logToTerminal('COMMAND DESK: LOADED F3 [DEBT] CDS SOVEREIGN STRESS INDEX.');
+      return;
+    }
+    if (cmd === 'F4' || cmd === 'F4 <GO>') {
+      setActiveTab('DYNASTY');
+      logToTerminal('COMMAND DESK: LOADED F4 [DYNASTY] DYNASTIC GENETIC FAMILY TREE.');
+      return;
+    }
+    if (cmd === 'F5' || cmd === 'F5 <GO>') {
+      setActiveTab('TRADING');
+      logToTerminal('COMMAND DESK: LOADED F5 [TRADING] DERIVATIVE BROKER SPOT LOGS.');
+      return;
+    }
+    if (cmd === 'F6' || cmd === 'F6 <GO>') {
+      setActiveTab('MARKETS');
+      logToTerminal('COMMAND DESK: LOADED F6 [MARKETS] DARKS POOL HEATMAP GRAPHICS.');
+      return;
+    }
+    if (cmd === 'F7' || cmd === 'F7 <GO>') {
+      setActiveTab('CORPORATE');
+      logToTerminal('COMMAND DESK: LOADED F7 [CORPORATE] EXECUTIVE EQUITY DIVIDENDS.');
+      return;
+    }
+    if (cmd === 'F8' || cmd === 'F8 <GO>') {
+      setActiveTab('SATELLITES');
+      logToTerminal('COMMAND DESK: LOADED F8 [SATELLITES] METEOROLOGICAL RADARS.');
+      return;
+    }
+    if (cmd === 'F9' || cmd === 'F9 <GO>') {
+      setActiveTab('INFLUENCE');
+      logToTerminal('COMMAND DESK: LOADED F9 [INFLUENCE] LOBBY REPUTATION GRAPH.');
+      return;
+    }
+    if (cmd === 'F10' || cmd === 'F10 <GO>') {
+      setActiveTab('COLLIDER');
+      logToTerminal('COMMAND DESK: LOADED F10 [COLLIDER] HADRON PARTICLE ACCELERATOR.');
+      return;
+    }
+    if (cmd === 'F11' || cmd === 'F11 <GO>') {
+      setActiveTab('BUNKER');
+      logToTerminal('COMMAND DESK: LOADED F11 [BUNKER] SUBTERRANEAN SHELTER CONTROLS.');
+      return;
+    }
+    if (cmd === 'F12' || cmd === 'F12 <GO>') {
+      setActiveTab('CODEX');
+      logToTerminal('COMMAND DESK: LOADED F12 [CODEX] SYSTEM ENTITY INTELLIGENCE LOGS.');
+      return;
+    }
+    if (cmd === 'F13' || cmd === 'F13 <GO>' || cmd === 'HELP' || cmd === 'HELP <GO>' || cmd === '/HELP') {
       setActiveTab('HELP');
-      logToTerminal('WORKSTATUS: LOADED F1 [HELP] SPECIFICATIONS MANUAL.');
+      logToTerminal('COMMAND DESK: LOADED F13 [HELP] OPERATIONAL SPECIFICATIONS MANUAL.');
       return;
     }
 
-    // New Milspec Planetary Desk Shortcodes
-    if (cmd === 'F2' || cmd === 'F2 <GO>' || cmd === 'WORLD' || cmd === 'WORLD <GO>') {
+    // Direct String Word Fallbacks
+    if (cmd === 'WORLD' || cmd === 'WORLD <GO>') {
       setActiveTab('WORLD');
-      logToTerminal('COMMAND DESK: LOADED F2 [PLN_WORLD] PLANETARY TACTICAL SCREEN.');
+      logToTerminal('COMMAND DESK: LOADED WORLD GEOPOLITICAL PLANETARY MAP.');
       return;
     }
-    if (cmd === 'F3' || cmd === 'F3 <GO>' || cmd === 'MARKET' || cmd === 'MARKETS' || cmd === 'MARKETS <GO>') {
-      setActiveTab('MARKETS');
-      logToTerminal('COMMAND DESK: LOADED F3 [EQTY_MKT] GLOBAL MARKETS INDEX.');
-      return;
-    }
-    if (cmd === 'F4' || cmd === 'F4 <GO>' || cmd === 'RESEARCH' || cmd === 'RESEARCH <GO>') {
-      setActiveTab('RESEARCH');
-      logToTerminal('COMMAND DESK: LOADED F4 [RESRCH] UPGRADE PARADIGMS.');
-      return;
-    }
-    if (cmd === 'F5' || cmd === 'F5 <GO>' || cmd === 'AI_WAR' || cmd === 'AI_WAR <GO>') {
+    if (cmd === 'AI_WAR' || cmd === 'AI_WAR <GO>') {
       setActiveTab('AI_WAR');
-      logToTerminal('COMMAND DESK: LOADED F5 [AI_WAR] OMEGA COUNTER intelligence HUB.');
+      logToTerminal('COMMAND DESK: LOADED OMEGA DETECT INTRUSION CONSOLE.');
       return;
     }
-    if (cmd === 'F6' || cmd === 'F6 <GO>' || cmd === 'SATELLITES' || cmd === 'SATELLITES <GO>') {
-      setActiveTab('SATELLITES');
-      logToTerminal('COMMAND DESK: LOADED F6 [SAT_ORBIT] TELESCOPIC ORBITS ROUTING.');
+    if (cmd === 'RESEARCH' || cmd === 'RESEARCH <GO>') {
+      setActiveTab('RESEARCH');
+      logToTerminal('COMMAND DESK: LOADED UPGRADE RESEARCH PARADIGMS.');
       return;
     }
-    if (cmd === 'F7' || cmd === 'F7 <GO>' || cmd === 'DEBT' || cmd === 'DEBT <GO>') {
-      setActiveTab('DEBT');
-      logToTerminal('COMMAND DESK: LOADED F7 [DEBT_CONT] SOVEREIGN CDS STRESS INDEX.');
-      return;
-    }
-    if (cmd === 'F8' || cmd === 'F8 <GO>' || cmd === 'SUPPLY' || cmd === 'SUPPLY_CHAINS' || cmd === 'SUPPLY_CHAINS <GO>') {
+    if (cmd === 'SUPPLY' || cmd === 'SUPPLY_CHAINS' || cmd === 'SUPPLY_CHAINS <GO>') {
       setActiveTab('SUPPLY_CHAINS');
-      logToTerminal('COMMAND DESK: LOADED F8 [SUP_CHAIN] COMMODITIES LITHIUM LOGISTICS.');
+      logToTerminal('COMMAND DESK: LOADED COMMODITIES SUPPLY CHAINS INDEX.');
       return;
     }
-    if (cmd === 'F9' || cmd === 'F9 <GO>' || cmd === 'STAFF' || cmd === 'STAFF <GO>') {
+    if (cmd === 'STAFF' || cmd === 'STAFF <GO>') {
       setActiveTab('STAFF');
-      logToTerminal('COMMAND DESK: LOADED F9 [FIELD_OPS] FIELD OPERATIVES NEURAL MATRIX.');
+      logToTerminal('COMMAND DESK: LOADED OPERATIONS FIELD OPERATIONS NEURAL CORRIDOR.');
       return;
     }
-    if (cmd === 'F10' || cmd === 'F10 <GO>' || cmd === 'DYNASTY' || cmd === 'DYNASTY <GO>') {
-      setActiveTab('DYNASTY');
-      logToTerminal('COMMAND DESK: LOADED F10 [DYNA_GENE] DYNASTIC CELL OVERRIDES.');
-      return;
-    }
-    if (cmd === 'F11' || cmd === 'F11 <GO>' || cmd === 'INTEL' || cmd === 'INTEL <GO>') {
+    if (cmd === 'INTEL' || cmd === 'INTELLIGENCE' || cmd === 'INTELLIGENCE <GO>') {
       setActiveTab('INTELLIGENCE');
-      logToTerminal('COMMAND DESK: LOADED F11 [INTEL] DISINFO NARRATIVE WARFARE.');
+      logToTerminal('COMMAND DESK: LOADED SECURITY AGENCY INFORMERS NETWORK.');
       return;
     }
-    if (cmd === 'F12' || cmd === 'F12 <GO>' || cmd === 'SINGULARITY' || cmd === 'BLOOMI' || cmd === 'BLOOMI_CORE') {
+    if (cmd === 'SINGULARITY' || cmd === 'BLOOMI' || cmd === 'BLOOMI_CORE') {
       setActiveTab('SINGULARITY');
-      logToTerminal('COMMAND DESK: LOADED F12 [BLOOMI_CORE] MASTER FINANCIAL WAR HYBRID CONSOLE.');
+      logToTerminal('COMMAND DESK: LOADED MASTER ARTIFICIAL STRAND CORE.');
       return;
     }
     if (cmd === 'TRADING' || cmd === 'TRADE') {
       setActiveTab('TRADING');
-      logToTerminal('COMMAND DESK: LOADED [TRADING] DERIVATIVE ORDER BOOKS.');
+      logToTerminal('COMMAND DESK: LOADED SPOT EXCHANGE ORDER BOOKS.');
       return;
     }
 
@@ -830,11 +930,95 @@ export default function App() {
   // Sort chronologically reverse showing latest first
   combinedLogFeed.sort((a, b) => b.time.localeCompare(a.time));
 
+  // Render full screen retro boot sequence (Section 6.3)
+  if (bootStep === 0) {
+    return (
+      <div className="fixed inset-0 bg-[#030304] z-50 flex items-center justify-center p-8 font-mono select-none crt-overlay crt-vignette text-[#ffb300]">
+        <div className="max-w-xl w-full border border-[#FF6F00] bg-[#080a0c] p-6 rounded relative animate-pulse" style={{ boxShadow: '0 0 25px rgba(255, 111, 0, 0.4)' }}>
+          <div className="flex flex-col gap-4 font-terminal">
+            <div className="text-center border-b border-[#FF6F00] pb-4 select-none">
+              <h1 className="font-display font-black text-4xl text-white tracking-widest glow-amber">BLOOMI</h1>
+              <p className="text-[10px] text-[#FF6F00] font-black uppercase tracking-widest mt-1">SUPERSONIC QUANTUM TRADE WORKSTATION</p>
+            </div>
+
+            <div className="space-y-1.5 mt-2 select-none">
+              <div className="flex justify-between text-xs font-bold text-white uppercase tracking-wider">
+                <span>SYSTEM DIAGNOSIS SYSTEM INJECTION:</span>
+                <span>{bootProgress}%</span>
+              </div>
+              <div className="h-4 bg-black border border-[#FF6F00] p-0.5 rounded-sm">
+                <div 
+                  className="h-full bg-[#FF6F00] transition-all duration-75"
+                  style={{ width: `${bootProgress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="h-32 bg-black border border-[#1e2530] rounded p-3 overflow-y-auto text-[9.5px]/1.4 text-[#00ff41] font-mono scrollbar-none flex flex-col gap-1 select-text">
+              <div className="text-[#00D4FF] font-black">// SESSION DIAGNOSTICS DETACHED LINK //</div>
+              {bootLogs.map((log, idx) => (
+                <div key={idx} className="truncate">{log}</div>
+              ))}
+              <div className="animate-pulse font-black text-[#FF6F00]">_</div>
+            </div>
+
+            <div className="text-[8px] text-stone-600 border-t border-stone-900 pt-2 text-center uppercase tracking-wider font-mono select-none">
+              Cleared for Terminal Operator level // SEC_CODE: F_EYES_ONLY_COGNITIVE
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-screen w-screen bg-[#0a0c0f] text-[#e8edf5] font-sans text-xs overflow-hidden flex flex-col relative select-none">
+    <div className="h-screen w-screen bg-[#030304] text-[#E8DCC8] font-mono text-xs overflow-hidden flex flex-col relative select-none crt-overlay crt-vignette">
       
-      {/* 1. UPGRADED TOP BAR PANEL */}
-      <header className="min-h-[46px] bg-[#0a0f14] border-b border-[#1e2535] flex flex-wrap items-center justify-between px-3.5 py-1 z-10 shrink-0 select-none gap-2">
+      {/* Yellow Function Key Bar (F1-F12 -> Module Routing) - Section 2.1 */}
+      <div className="h-7 bg-[#101318] border-b border-[#1e2530] flex items-center px-2 py-0.5 shrink-0 select-none z-30">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none w-full py-0.5">
+          {[
+            { key: 'F1', id: 'LAB_VIEW' as const, label: 'LAB_VIEW' },
+            { key: 'F2', id: 'MACRO' as const, label: 'MACRO' },
+            { key: 'F3', id: 'DEBT' as const, label: 'DEBT_CDS' },
+            { key: 'F4', id: 'DYNASTY' as const, label: 'DYNA_GENE' },
+            { key: 'F5', id: 'TRADING' as const, label: 'TRADING' },
+            { key: 'F6', id: 'MARKETS' as const, label: 'MKT_GRID' },
+            { key: 'F7', id: 'CORPORATE' as const, label: 'CORPORATE' },
+            { key: 'F8', id: 'SATELLITES' as const, label: 'SAT_ORBIT' },
+            { key: 'F9', id: 'INFLUENCE' as const, label: 'INFLUENCE' },
+            { key: 'F10', id: 'COLLIDER' as const, label: 'COLLIDER' },
+            { key: 'F11', id: 'BUNKER' as const, label: 'BUNKER' },
+            { key: 'F12', id: 'CODEX' as const, label: 'CODEX_DB' },
+          ].map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.key}
+                onClick={() => {
+                  executeUnifiedCommand(`${item.key} <GO>`);
+                }}
+                className={`px-1.5 h-5 font-black uppercase text-[8.5px] rounded-terminal transition-all cursor-pointer flex items-center gap-1 border shrink-0 ${
+                  isActive 
+                    ? 'bg-[#FF6F00] text-black border-white shadow-[0_0_5px_rgba(255,111,0,0.55)]'
+                    : 'bg-[#ffb300] text-black border-[#7A3B00] hover:bg-yellow-400'
+                }`}
+              >
+                <span className="opacity-70 text-[8px]">{item.key}:</span>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+          
+          <div className="ml-auto flex items-center gap-2 pr-1.5 text-[8.5px] font-mono text-stone-500 font-bold shrink-0">
+            <span>VOLUME: <span className="text-[#00D4FF]">50%</span></span>
+            <span>MUTE: <span className="text-red-400">OFF</span></span>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. UPGRADED TOP BAR PANEL */}
+      <header className="min-h-[46px] bg-[#0c1015] border-b border-[#1e2530] flex flex-wrap items-center justify-between px-3.5 py-1 z-10 shrink-0 select-none gap-2">
         <div className="flex items-center gap-3">
           <div className="w-2.5 h-2.5 bg-red-500 animate-ping rounded-full shrink-0" />
           <div className="flex flex-col leading-none">
@@ -958,18 +1142,19 @@ export default function App() {
             
             <div className="grid grid-cols-2 gap-1 font-terminal">
               {[
-                { id: 'WORLD' as const, key: 'F2', label: 'PLN_WORLD', icon: Globe },
-                { id: 'MARKETS' as const, key: 'F3', label: 'MKT_GRID', icon: Layers },
-                { id: 'RESEARCH' as const, key: 'F4', label: 'RESRCH_SYS', icon: FlaskConical },
-                { id: 'AI_WAR' as const, key: 'F5', label: 'AI_COUNTER', icon: ShieldAlert },
-                { id: 'SATELLITES' as const, key: 'F6', label: 'SAT_ORBIT', icon: Radio },
-                { id: 'DEBT' as const, key: 'F7', label: 'DEBT_CONG', icon: Activity },
-                { id: 'SUPPLY_CHAINS' as const, key: 'F8', label: 'SUP_CHAIN', icon: Network },
-                { id: 'STAFF' as const, key: 'F9', label: 'FIELD_OPS', icon: Users },
-                { id: 'DYNASTY' as const, key: 'F10', label: 'DYNA_GENE', icon: Award },
-                { id: 'INTELLIGENCE' as const, key: 'F11', label: 'INTEL_DIV', icon: Skull },
-                { id: 'SINGULARITY' as const, key: 'F12', label: 'BLOOMI_CORE', icon: Cpu },
-                { id: 'HELP' as const, key: 'F1', label: 'BBG_DESK', icon: TrendingUp }
+                { id: 'LAB_VIEW' as const, key: 'F1', label: 'LAB_MAP', icon: FlaskConical },
+                { id: 'MACRO' as const, key: 'F2', label: 'MACRO_M', icon: Globe },
+                { id: 'DEBT' as const, key: 'F3', label: 'DEBT_CDS', icon: Activity },
+                { id: 'DYNASTY' as const, key: 'F4', label: 'DYNASTIES', icon: Award },
+                { id: 'TRADING' as const, key: 'F5', label: 'TRAD_DSK', icon: TrendingUp },
+                { id: 'MARKETS' as const, key: 'F6', label: 'MKT_GRID', icon: Layers },
+                { id: 'CORPORATE' as const, key: 'F7', label: 'CORP_REALLOC', icon: Briefcase },
+                { id: 'SATELLITES' as const, key: 'F8', label: 'SAT_ORBIT', icon: Radio },
+                { id: 'INFLUENCE' as const, key: 'F9', label: 'INFLU_NET', icon: Network },
+                { id: 'COLLIDER' as const, key: 'F10', label: 'RING_COLL', icon: Sparkles },
+                { id: 'BUNKER' as const, key: 'F11', label: 'BUNKER', icon: ShieldAlert },
+                { id: 'CODEX' as const, key: 'F12', label: 'CODEX_DB', icon: BookOpen },
+                { id: 'HELP' as const, key: 'F13', label: 'HELP_DESK', icon: TermIcon }
               ].map((tab) => {
                 const isActive = activeTab === tab.id;
                 const Icon = tab.icon;
@@ -1658,6 +1843,40 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            )}
+
+            {activeTab === 'BUNKER' && (
+              <BunkerPanel
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
+            )}
+
+            {activeTab === 'CODEX' && (
+              <CodexTerminal
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
+            )}
+
+            {activeTab === 'COLLIDER' && (
+              <CernHadronAccelerator
+                state={gameState!}
+                activeTicker={selectedTicker}
+              />
+            )}
+
+            {activeTab === 'LAB_VIEW' && (
+              <LabMapView
+                state={gameState!}
+                onModifyState={onModifySomaticState}
+                onLogTerminal={logToTerminal}
+                playSyntheticSound={playSyntheticSound}
+              />
             )}
 
             {activeTab === 'SATELLITES' && (
