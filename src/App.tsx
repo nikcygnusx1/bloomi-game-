@@ -24,6 +24,7 @@ import { BunkerPanel } from './components/BunkerPanel';
 import { CodexTerminal } from './components/CodexTerminal';
 import { IntroCinematicOverlay } from './cinematic/IntroCinematicOverlay';
 import { VideoFeedPanel } from './modules/VideoFeed/VideoFeedPanel';
+import { PermanentVideoPanel } from './components/PermanentVideoPanel';
 import { 
   Skull, 
   Activity, 
@@ -2720,6 +2721,9 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ═ BLOOMI PERMANENT GAME VIDEO WINDOW INTERFACE ═ */}
+      <PermanentVideoPanel state={gameState} />
 
     </div>
   );
