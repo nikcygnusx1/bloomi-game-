@@ -1,29 +1,30 @@
+/* Main Frame of the Surveillance Panel */
 .panel {
   position: fixed;
   bottom: 40px;
   right: 0px;
-  width: 380px;
+  width: 680px;
   z-index: 500;
   display: flex;
   flex-direction: column;
-  background-color: #05070a;
-  border: 1px solid #1e2535;
+  background-color: #030304;
+  border: 1px solid #ff6f00;
   border-right: none;
   font-family: 'IBM Plex Mono', 'JetBrains Mono', monospace;
   overflow: hidden;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.98);
   transition: height 200ms ease, width 200ms ease;
 }
 
 .expanded {
-  height: 260px;
+  height: 520px;
 }
 
 .collapsed {
   height: 28px;
 }
 
-/* Header strip (28px height) */
+/* Header Strip (Exactly 28px height) */
 .header {
   height: 28px;
   background-color: #080a0c;
@@ -34,43 +35,42 @@
   padding: 0 10px;
   user-select: none;
   cursor: pointer;
+  z-index: 30;
 }
 
 .titleSection {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .liveDot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   background-color: #ef4444;
   border-radius: 50%;
-  animation: pulse 1.5s infinite;
+  animation: pulseDot 1.4s infinite ease-in-out;
 }
 
 .liveText {
   color: #ef4444;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.1em;
 }
 
 .feedName {
-  color: #94a3b8;
+  color: #FFB300;
   font-size: 10px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
 .controlBtn {
@@ -82,21 +82,52 @@
   cursor: pointer;
   padding: 2px 4px;
   transition: color 150ms ease;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 .controlBtn:hover {
-  color: #ff9d00;
+  color: #ffaa44;
 }
 
-/* Video display container (200px height for desktop) */
-.videoArea {
-  flex: 1;
+/* Surveillance Quad Grid Container */
+.gridContainer {
   position: relative;
-  background-color: #020203;
+  flex: 1;
+  width: 100%;
+  height: 492px; /* 520px - 28px */
+  background-color: #020202;
   overflow: hidden;
 }
 
-/* Scanline visual overlay (restricted to video area only) */
+/* Individual surveillance cell box style */
+.videoCell {
+  position: absolute;
+  background-color: #05070a;
+  border: 1px solid rgba(255, 111, 0, 0.15);
+  overflow: hidden;
+  transition: left 200ms ease, top 200ms ease, width 200ms ease, height 200ms ease, border-color 200ms ease;
+  cursor: pointer;
+}
+
+.videoCell:hover {
+  border-color: rgba(255, 111, 0, 0.45);
+}
+
+.videoCellFocused {
+  border-color: #ff6f00;
+  box-shadow: inset 0 0 10px rgba(255, 111, 0, 0.2);
+  cursor: default;
+}
+
+/* Video Frame Iframe container */
+.videoIframeWrapper {
+  position: absolute;
+  inset: 0px 0px 18px 0px; /* Leave space for bottom 18px data strip */
+  background-color: #000000;
+  overflow: hidden;
+}
+
+/* Absolute scanlines confined strictly to each video wrapper */
 .scanlines {
   position: absolute;
   inset: 0;
@@ -106,188 +137,309 @@
     0deg,
     transparent,
     transparent 3px,
-    rgba(0, 0, 0, 0.15) 3px,
-    rgba(0, 0, 0, 0.15) 4px
+    rgba(0, 0, 0, 0.12) 3px,
+    rgba(0, 0, 0, 0.12) 4px
   );
 }
 
-.additionalScanlines {
+.degradedScanlines {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 11;
   background: repeating-linear-gradient(
-    90deg,
+    0deg,
     transparent,
-    transparent 4px,
-    rgba(0, 0, 0, 0.08) 4px,
-    rgba(0, 0, 0, 0.08) 5px
+    transparent 2px,
+    rgba(0, 0, 0, 0.18) 2px,
+    rgba(0, 0, 0, 0.18) 3px
   );
 }
 
-/* SVG Corner brackets overlay */
+/* Corner bracket overlay styles */
 .brackets {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   z-index: 15;
 }
 
 .bracketLine {
-  stroke: rgba(255, 111, 0, 0.7);
+  stroke: #ff6f00;
   stroke-width: 1.5;
+  opacity: 0.75;
 }
 
-/* Bottom data strip (22px height) */
-.dataStrip {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 22px;
-  background-color: rgba(3, 3, 4, 0.85);
-  border-top: 1px solid rgba(255, 111, 0, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  font-size: 8px;
-  color: #ffb300;
-  z-index: 20;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.dataStripSection {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Ambient color grades */
+/* Amber color grade layers */
 .colorGrade {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 12;
   mix-blend-mode: screen;
-  transition: background-color 500ms ease;
 }
 
 .gradeDefault {
-  background-color: rgba(255, 111, 0, 0.03);
+  background-color: rgba(255, 111, 0, 0.04);
 }
 
 .gradeFlood {
-  background-color: rgba(0, 150, 255, 0.08);
+  background-color: rgba(0, 150, 255, 0.08); /* Blue Flood Tint */
 }
 
 .gradeHeat {
-  background-color: rgba(255, 80, 0, 0.10);
+  background-color: rgba(255, 80, 0, 0.10); /* Warm Heat Dome Tint */
 }
 
-/* Interactive Feed selector bar (32px height) */
-.feedSelector {
-  height: 32px;
-  background-color: #0b0c10;
-  border-top: 1px solid #1e2535;
+/* Top corner overlay labels */
+.cellLabel {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ff6f00;
+  letter-spacing: 0.08em;
+  background: rgba(3, 3, 4, 0.85);
+  padding: 2.5px 6px;
+  border-left: 2px solid #ff6f00;
+  z-index: 20;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+.cellLabelFlashing {
+  animation: textFlash 1.5s infinite steps(2);
+}
+
+.cellLiveIndicator {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: #00ff41;
+  background: rgba(3, 3, 4, 0.85);
+  padding: 2.5px 6px;
+  z-index: 20;
+  pointer-events: none;
+  letter-spacing: 0.05em;
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  padding: 0 4px;
+  gap: 4px;
 }
 
-.pillButton {
-  flex: 1;
-  max-width: 80px;
-  height: 20px;
+.cellLiveDot {
+  width: 4px;
+  height: 4px;
+  background-color: #00ff41;
+  border-radius: 50%;
+  animation: pulseDot 1.4s infinite ease-in-out;
+}
+
+.cellOfflineText {
+  color: #888899;
+}
+
+/* Focus Action Control buttons inside cells */
+.cellActionBtn {
+  position: absolute;
+  top: 6px;
+  right: 60px; /* sit clear of live label */
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 8px;
   font-weight: 900;
-  text-transform: uppercase;
-  border-radius: 3px;
+  color: rgba(255, 111, 0, 0.6);
+  background: rgba(3, 3, 4, 0.9);
+  border: 1px solid rgba(255, 111, 0, 0.3);
+  padding: 1.5px 5px;
+  border-radius: 2px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 22;
   transition: all 150ms ease;
+  pointer-events: auto;
 }
 
-.pillActive {
+.cellActionBtn:hover {
+  color: #00ff41;
+  border-color: #00ff41;
+}
+
+.cellActionBtnActive {
+  color: #00ff41;
+  border-color: #00ff41;
+  background-color: rgba(0, 255, 65, 0.1);
+}
+
+/* Individual Cell Data Strip (Exactly 18px height) */
+.cellDataStrip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background: rgba(3, 3, 4, 0.9);
+  border-top: 1px solid rgba(255, 111, 0, 0.25);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  line-height: 18px;
+  color: #ffb300;
+  padding: 0 8px;
+  letter-spacing: 0.04em;
+  z-index: 20;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  justify-content: space-between;
+}
+
+.cellDataStripFocused {
+  font-size: 10px;
+  color: #ffffff;
+}
+
+/* Alarm label overlays for critical threats */
+.cellThreatOverlay {
+  position: absolute;
+  top: 36px;
+  left: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px;
+  font-weight: 900;
+  color: #ffffff;
+  background-color: #ef4444;
+  padding: 2px 6px;
+  border-radius: 2px;
+  z-index: 21;
+  pointer-events: none;
+  animation: flashUrgent 1s infinite steps(2);
+  letter-spacing: 0.1em;
+}
+
+/* Return to quad cell focus button overlay */
+.backBtn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 900;
+  color: #ffffff;
   background-color: #ff6f00;
-  color: #000000;
   border: 1px solid #ffffff;
-  box-shadow: 0 0 6px rgba(255, 111, 0, 0.5);
+  padding: 1px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+  z-index: 25;
+  transition: all 150ms ease;
+  pointer-events: auto;
 }
 
-.pillInactive {
-  background-color: #0e1217;
-  color: #a78bfa; /* subtle purple-amber fallback */
-  color: rgba(255, 111, 0, 0.5);
-  border: 1px solid rgba(255, 111, 0, 0.25);
+.backBtn:hover {
+  background-color: #ffffff;
+  color: #000000;
 }
 
-.pillInactive:hover {
-  color: #ff6f00;
-  border-color: #ff6f00;
-  background-color: #1a1e26;
-}
-
-/* Signal Glitch Overlays */
+/* Sovereign stress custom glowing indicator */
 .glowing {
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+  border-color: #ef4444;
 }
 
-/* Offline display screen */
+.sovereignStressBorder {
+  border-color: #ef4444 !important;
+  animation: redFlashColor 1.5s infinite ease-in-out;
+}
+
+/* Classifier or disconnected fallback screen */
 .offlineScreen {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: calc(100% - 18px); /* Account for bottom strip space */
   width: 100%;
-  background-color: #030304;
+  background-color: #080a0c;
   color: #ff6f00;
   font-size: 10px;
   text-align: center;
   padding: 12px;
+  gap: 6px;
 }
 
 .offlineIcon {
   font-size: 14px;
-  margin-bottom: 4px;
-  animation: pulse 1s infinite;
 }
 
-.offlineText {
-  color: #94a3b8;
+.offlineLabel {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: #888899;
+  letter-spacing: 0.1em;
+}
+
+.offlineSubtext {
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 8px;
-  margin-top: 2px;
-  line-height: 1.2;
+  color: #4a5568;
 }
 
 /* Animations */
-@keyframes pulse {
+@keyframes pulseDot {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes flashUrgent {
+  0%, 100% {
+    background-color: #ef4444;
+  }
+  50% {
+    background-color: #7f1d1d;
+  }
+}
+
+@keyframes textFlash {
   0%, 100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.3;
+    opacity: 0.2;
   }
 }
 
-/* Responsive Overrides (max-width: 1400px) */
+@keyframes redFlashColor {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 0.95);
+  }
+}
+
+/* Adaptive Responsive Layout Overrides */
 @media (max-width: 1400px) {
   .panel {
-    width: 280px;
+    width: 560px;
   }
   .expanded {
-    height: 200px;
+    height: 440px;
   }
-  .feedName {
-    max-width: 100px;
-  }
-  .pillButton {
-    max-width: 60px;
-    height: 18px;
-    font-size: 7px;
+  .gridContainer {
+    height: 412px; /* 440px - 28px */
   }
 }

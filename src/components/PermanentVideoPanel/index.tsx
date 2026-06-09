@@ -4,21 +4,15 @@ import { VideoFrame } from './VideoFrame';
 import { FeedSelector } from './FeedSelector';
 import { SimState } from '../../types';
 import { playSyntheticSound } from '../../utils/audio';
+import { QUAD_FEEDS, FeedConfig } from '../../config/videoSources';
 import styles from './styles.module.css';
 
 interface PermanentVideoPanelProps {
   state?: SimState | null;
 }
 
-const FEED_NAMES: Record<'CERN' | 'MRKTS' | 'INTEL' | 'ATMO', string> = {
-  CERN: 'CERN_LHC_TELEMETRY',
-  MRKTS: 'SOVEREIGN_CDS_SPREADS',
-  INTEL: 'PALANTIR_GRAPH_NET',
-  ATMO: 'BLACK_RAIN_METEOROLOGY',
-};
-
 export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) {
-  const [activeFeedId, setActiveFeedId] = useState<'CERN' | 'MRKTS' | 'INTEL' | 'ATMO'>('CERN');
+  const [focusedFeedId, setFocusedFeedId] = useState<string | null>(null);
   const [screenTooNarrow, setScreenTooNarrow] = useState(false);
 
   // Read persisted expanded/collapsed state from sessionStorage
@@ -28,7 +22,7 @@ export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) 
     return true; // Default expanded
   });
 
-  // Track screen size to restrict expansion on narrow layouts
+  // Track screen size to restrict expansion on narrow layouts (< 1100px)
   useLayoutEffect(() => {
     const checkWidth = () => {
       const isNarrow = window.innerWidth < 1100;
@@ -43,10 +37,10 @@ export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) 
     return () => window.removeEventListener('resize', checkWidth);
   }, []);
 
-  // Set sessionStorage whenever isExpanded changes, except when forced narrow
+  // Minimize or maximize state changer
   const toggleExpanded = useCallback((e?: React.MouseEvent) => {
     if (e) {
-      e.stopPropagation(); // Avoid double toggles from overlay clicks
+      e.stopPropagation(); // Avoid double logs on clicking controls
     }
     if (screenTooNarrow) return;
 
@@ -61,10 +55,9 @@ export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) 
     });
   }, [screenTooNarrow]);
 
-  // Backtick keyboard trigger listener
+  // Keyboard listeners: backtick toggle, Escape key exits focus mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Avoid intercepting during input/textfields focus
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -73,9 +66,9 @@ export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) 
         return;
       }
 
+      // Backtick code triggers collapse/expand
       if (e.key === '`' || e.code === 'Backquote') {
-        if (screenTooNarrow) return; // Disallow expand if narrow
-        
+        if (screenTooNarrow) return;
         e.preventDefault();
         setIsExpanded((prev) => {
           const next = !prev;
@@ -86,72 +79,111 @@ export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) 
           return next;
         });
       }
+
+      // Escape code triggers exit Focus Mode
+      if (e.key === 'Escape') {
+        setFocusedFeedId((prev) => {
+          if (prev !== null) {
+            try {
+              playSyntheticSound('click');
+            } catch (err) {}
+            return null;
+          }
+          return null;
+        });
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [screenTooNarrow]);
 
-  // Callback to handle automatic feeds switching by severe system events
-  const handleAutoSwitchFeed = useCallback((feedId: 'CERN' | 'MRKTS' | 'INTEL' | 'ATMO') => {
-    setActiveFeedId(feedId);
-  }, []);
-
-  // Listen to game events logic hook
+  // Hook game weather, defaults, reactor spikes and threats simultaneously
   const {
     colorGrade,
     isNoiseFlash,
     isFeedDegraded,
-    pulseRedBorder,
-    energySpikeValue,
-  } = useGameEvents({
-    state,
-    onAutoSwitchFeed: handleAutoSwitchFeed,
-  });
+    sovereignDefault,
+    colliderArmed,
+    bunkerThreat,
+  } = useGameEvents(state);
 
-  // Cycle to next feed logic
-  const handleCycleFeed = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Stop event bubbling to header click
-    const list: ('CERN' | 'MRKTS' | 'INTEL' | 'ATMO')[] = ['CERN', 'MRKTS', 'INTEL', 'ATMO'];
-    const curIdx = list.indexOf(activeFeedId);
-    const nextIdx = (curIdx + 1) % list.length;
-    
+  // Focus specific stream on mouse clicks
+  const handleCellClick = (id: string) => {
+    if (focusedFeedId === id) return; // Already enlarged
+    try {
+      playSyntheticSound('tick');
+    } catch (err) {}
+    setFocusedFeedId(id);
+  };
+
+  // Exit focus view handler
+  const handleExitFocus = (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       playSyntheticSound('click');
     } catch (err) {}
-    
-    setActiveFeedId(list[nextIdx]);
+    setFocusedFeedId(null);
   };
 
-  // Determine actual rendered layout heights
+  // State mapping of layout transitions using calculated relative percentages
+  const getCellCoordinates = (index: number, feedId: string) => {
+    if (focusedFeedId === null) {
+      // Normal multi-feed 2x2 layout positioning coordinates
+      const positions = [
+        { left: '0%', top: '0%', width: 'calc(50% - 1px)', height: 'calc(50% - 1px)' },
+        { left: 'calc(50% + 1px)', top: '0%', width: 'calc(50% - 1px)', height: 'calc(50% - 1px)' },
+        { left: '0%', top: 'calc(50% + 1px)', width: 'calc(50% - 1px)', height: 'calc(50% - 1px)' },
+        { left: 'calc(50% + 1px)', top: 'calc(50% + 1px)', width: 'calc(50% - 1px)', height: 'calc(50% - 1px)' },
+      ];
+      return positions[index];
+    } else if (focusedFeedId === feedId) {
+      // Focused large cell taking up 75% wide, 100% tall column
+      return {
+        left: '0%',
+        top: '0%',
+        width: 'calc(75% - 2px)',
+        height: '100%',
+      };
+    } else {
+      // Non-focused columns stacked vertically on the right side
+      const remainingFeeds = QUAD_FEEDS.filter(f => f.id !== focusedFeedId);
+      const stackIdx = remainingFeeds.findIndex(f => f.id === feedId);
+      
+      const topOffsetPercent = stackIdx * 33.33;
+      return {
+        left: 'calc(75% + 1px)',
+        top: `calc(${topOffsetPercent}% + ${stackIdx}px)`,
+        width: 'calc(25% - 1px)',
+        height: 'calc(33.33% - 2px)',
+      };
+    }
+  };
+
   const containerHeightClass = isExpanded ? styles.expanded : styles.collapsed;
-  const redBorderClass = pulseRedBorder ? styles.glowing : '';
+  const globalPulseClass = sovereignDefault ? styles.glowing : '';
 
   return (
-    <div className={`${styles.panel} ${containerHeightClass} ${redBorderClass}`} id="bloomi_permanent_video_panel">
+    <div
+      className={`${styles.panel} ${containerHeightClass} ${globalPulseClass}`}
+      id="bloomi_permanent_video_panel"
+    >
       {/* 28px Header Bar */}
       <div className={styles.header} onClick={() => !screenTooNarrow && toggleExpanded()}>
         <div className={styles.titleSection}>
           <div className={styles.liveDot} />
-          <div className={styles.liveText}>LIVE</div>
-          <div className={styles.feedName}>{FEED_NAMES[activeFeedId]}</div>
+          <div className={styles.liveText}>● LIVE</div>
+          <div className={styles.feedName}>
+            SOVEREIGN_FEED_ARRAY [QUAD ▪▪▪▪]
+          </div>
         </div>
 
         <div className={styles.controls}>
-          {/* Next channel button [▶] */}
-          <button 
-            className={styles.controlBtn} 
-            onClick={handleCycleFeed} 
-            title="Cycle sovereign intelligence stream"
-          >
-            [▶]
-          </button>
-          
-          {/* Collapse/Expand button [━━] */}
+          {/* Collapse/Expand action buttons */}
           {!screenTooNarrow && (
-            <button 
-              className={styles.controlBtn} 
-              onClick={toggleExpanded} 
+            <button
+              className={styles.controlBtn}
+              onClick={toggleExpanded}
               title={isExpanded ? "Collapse panel" : "Expand panel"}
             >
               {isExpanded ? '[━━]' : '[⤢]'}
@@ -160,22 +192,46 @@ export function PermanentVideoPanel({ state = null }: PermanentVideoPanelProps) 
         </div>
       </div>
 
-      {/* Main expanded contents (always mounted in DOM so iframe keeps running when collapsed) */}
-      <VideoFrame
-        feedId={activeFeedId}
-        state={state}
-        colorGrade={colorGrade}
-        isNoiseFlash={isNoiseFlash}
-        isFeedDegraded={isFeedDegraded}
-        energySpikeValue={energySpikeValue}
-      />
+      {/* Main expanded video contents - kept in DOM so background youtube audio keeps flowing */}
+      <div className={styles.gridContainer}>
+        {QUAD_FEEDS.map((feed, index) => {
+          const isFocused = focusedFeedId === feed.id;
+          const coordinates = getCellCoordinates(index, feed.id);
 
-      <FeedSelector
-        activeFeedId={activeFeedId}
-        onChangeFeed={(id) => setActiveFeedId(id)}
-      />
+          return (
+            <VideoFrame
+              key={feed.id}
+              feed={feed}
+              state={state}
+              isFocused={isFocused}
+              colorGrade={colorGrade}
+              isNoiseFlash={isNoiseFlash}
+              isFeedDegraded={isFeedDegraded}
+              sovereignDefault={sovereignDefault}
+              colliderArmed={colliderArmed}
+              bunkerThreat={bunkerThreat}
+              onFocus={() => handleCellClick(feed.id)}
+              style={coordinates}
+            />
+          );
+        })}
 
+        {/* Thin overlay action button for returning back to regular Quad view */}
+        {focusedFeedId !== null && (
+          <button
+            className={styles.backBtn}
+            onClick={handleExitFocus}
+            title="Return to Quad Feed stream"
+          >
+            [◀ QUAD]
+          </button>
+        )}
+      </div>
+
+      {/* Retro compatibility structure to prevent typing errors elsewhere */}
+      <FeedSelector />
     </div>
   );
 }
+
 export default PermanentVideoPanel;

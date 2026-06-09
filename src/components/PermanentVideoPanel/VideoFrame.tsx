@@ -1,98 +1,119 @@
 import React, { useState, useEffect } from 'react';
-import { VIDEO_PANEL_SOURCES } from '../../config/videoSources';
+import { FeedConfig } from '../../config/videoSources';
 import { FeedOverlay } from './FeedOverlay';
 import { SimState } from '../../types';
 import styles from './styles.module.css';
 
 interface VideoFrameProps {
-  feedId: 'CERN' | 'MRKTS' | 'INTEL' | 'ATMO';
+  feed: FeedConfig;
   state: SimState | null;
+  isFocused: boolean;
   colorGrade: 'default' | 'flood' | 'heat';
   isNoiseFlash: boolean;
   isFeedDegraded: boolean;
-  energySpikeValue: number;
+  sovereignDefault: boolean;
+  colliderArmed: boolean;
+  bunkerThreat: boolean;
+  onFocus: () => void;
+  style?: React.CSSProperties;
 }
 
-const FEED_KEY_MAP: Record<'CERN' | 'MRKTS' | 'INTEL' | 'ATMO', keyof typeof VIDEO_PANEL_SOURCES> = {
-  CERN: 'cern',
-  MRKTS: 'markets',
-  INTEL: 'intel',
-  ATMO: 'atmo',
-};
-
 export function VideoFrame({
-  feedId,
+  feed,
   state,
+  isFocused,
   colorGrade,
   isNoiseFlash,
   isFeedDegraded,
-  energySpikeValue,
+  sovereignDefault,
+  colliderArmed,
+  bunkerThreat,
+  onFocus,
+  style,
 }: VideoFrameProps) {
-  const [playTriggered, setPlayTriggered] = useState(false);
+  const [isLiveActive, setIsLiveActive] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const configKey = FEED_KEY_MAP[feedId];
-  const videoId = VIDEO_PANEL_SOURCES[configKey];
+  // Auto-recovery: If live URL fails or iframe errors out, fallback to archived loop automatically
+  const handleIframeError = () => {
+    setHasError(true);
+    setIsLiveActive(false);
+  };
 
-  // We consider it offline if the video ID is empty or placeholder 'YOUTUBE_VIDEO_ID_HERE'
-  const isOffline = !videoId || videoId.trim() === '' || videoId === 'YOUTUBE_VIDEO_ID_HERE';
+  // Determine source URL based on [LIVE] preference and error status
+  const embedUrl = (() => {
+    if (isLiveActive && !hasError && feed.liveUrl) {
+      // For channel live streams, omit loop parameter as specified in Section 8
+      return `${feed.liveUrl}&autoplay=1&mute=1&controls=0&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&enablejsapi=0`;
+    } else {
+      // Fallback video loops forever
+      return `https://www.youtube.com/embed/${feed.fallbackVideoId}?autoplay=1&mute=1&controls=0&rel=0&loop=1&playlist=${feed.fallbackVideoId}`;
+    }
+  })();
 
-  // Fallback trigger for browser gesture logic if needed
-  useEffect(() => {
-    // Reset error on feed change standard
-    setHasError(false);
-  }, [feedId]);
+  // Whether this specific feed is classified or has no playable identifier
+  const isSovereignOffline = !feed.fallbackVideoId || feed.fallbackVideoId.trim() === '';
 
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&iv_load_policy=3&modestbranding=1&loop=1&playlist=${videoId}&start=0`;
+  // Handle toggling live stream state
+  const handleToggleLive = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Avoid triggering parent cell Focus Mode
+    setIsLiveActive((prev) => !prev);
+  };
 
   return (
-    <div className={styles.videoArea}>
-      {!isOffline && !hasError ? (
-        <div className="absolute inset-0 w-full h-full">
-          {/* Muted auto-looping chromeless YouTube iframe */}
+    <div
+      className={`${styles.videoCell} ${isFocused ? styles.videoCellFocused : ''} ${
+        feed.id === 'geopolitical' && sovereignDefault ? styles.sovereignStressBorder : ''
+      }`}
+      style={style}
+      onClick={onFocus}
+    >
+      {/* 1. Video render layer */}
+      <div className={styles.videoIframeWrapper}>
+        {!isSovereignOffline ? (
           <iframe
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none border-none scale-[1.05]"
+            className="absolute inset-0 w-full h-full object-cover select-none border-none scale-[1.05]"
             src={embedUrl}
-            title="Sovereign Broadcast Link"
+            title={`Bloomi Intelligence Feed: ${feed.label}`}
             allow="autoplay; encrypted-media"
-            onError={() => setHasError(true)}
+            onError={handleIframeError}
             style={{ pointerEvents: 'none' }}
           />
-
-          {/* Interactive Play Unlock Overlay (In case autoplay gets blocked) */}
-          {!playTriggered && (
-            <div 
-              className="absolute inset-0 flex items-center justify-center bg-black/60 cursor-pointer z-10 hover:bg-black/40 transition-colors"
-              onClick={() => setPlayTriggered(true)}
-              title="Click to anchor audio clearance"
-            >
-              <div className="px-3 py-1 border border-[#ff6f00] bg-[#030304]/90 text-stone-100 font-mono text-[8px] tracking-widest rounded flex items-center gap-1">
-                <span>[ UNCOUPLE SIGNAL ]</span>
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Classified SIGNAL OFFLINE retro layout */
-        <div className={styles.offlineScreen}>
-          <div className={`${styles.offlineIcon} font-extrabold`}>◈  NO CARRIER</div>
-          <div className="text-[10px] font-black uppercase tracking-wider text-rose-500">FEED_STATUS: OFFLINE</div>
-          <div className={styles.offlineText}>
-            THE CLASSIFIED RECEIVER CHANNEL HAS NOT BEEN DEPLOYED.<br />
-            SET VIDEO IDENTIFIERS IN <code className="text-[#00ffff] block mt-0.5">/src/config/videoSources.ts</code>.
+        ) : (
+          /* SECTION 4 - SIGNAL_OFFLINE state */
+          <div className={styles.offlineScreen}>
+            <span className="text-amber-500 text-lg">◈</span>
+            <span className={styles.offlineLabel}>NO CARRIER</span>
+            <span className={styles.offlineSubtext}>{feed.label}</span>
           </div>
-        </div>
+        )}
+      </div>
+
+      {/* 2. Interactive [LIVE] Toggle button at upper right (except if completely offline) */}
+      {!isSovereignOffline && (
+        <button
+          className={`${styles.cellActionBtn} ${isLiveActive ? styles.cellActionBtnActive : ''}`}
+          onClick={handleToggleLive}
+          title={isLiveActive ? "Showing LIVE Stream. Click to show Fallback Video." : "Click to attempt Live stream"}
+        >
+          {isLiveActive ? '[LIVE_ON]' : '[LIVE]'}
+        </button>
       )}
 
-      {/* Layer overlays: scanning lines, brackets, bottom bar */}
+      {/* 3. Feed overlays (Brackets, Labels, Scanlines, Statuses, Audio flash, atmo grades) */}
       <FeedOverlay
-        feedId={feedId}
+        feed={feed}
         state={state}
+        isFocused={isFocused}
         colorGrade={colorGrade}
         isNoiseFlash={isNoiseFlash}
         isFeedDegraded={isFeedDegraded}
-        energySpikeValue={energySpikeValue}
+        sovereignDefault={sovereignDefault}
+        colliderArmed={colliderArmed}
+        bunkerThreat={bunkerThreat}
+        isLiveActive={isLiveActive}
       />
     </div>
   );
 }
+export default VideoFrame;

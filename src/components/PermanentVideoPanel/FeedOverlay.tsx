@@ -1,48 +1,63 @@
 import React, { useMemo } from 'react';
 import { SimState } from '../../types';
+import { FeedConfig } from '../../config/videoSources';
 import styles from './styles.module.css';
 
 interface FeedOverlayProps {
-  feedId: 'CERN' | 'MRKTS' | 'INTEL' | 'ATMO';
+  feed: FeedConfig;
   state: SimState | null;
+  isFocused: boolean;
   colorGrade: 'default' | 'flood' | 'heat';
   isNoiseFlash: boolean;
   isFeedDegraded: boolean;
-  energySpikeValue: number;
+  sovereignDefault: boolean;
+  colliderArmed: boolean;
+  bunkerThreat: boolean;
+  isLiveActive: boolean;
 }
 
 export function FeedOverlay({
-  feedId,
+  feed,
   state,
+  isFocused,
   colorGrade,
   isNoiseFlash,
   isFeedDegraded,
-  energySpikeValue,
+  sovereignDefault,
+  colliderArmed,
+  bunkerThreat,
+  isLiveActive,
 }: FeedOverlayProps) {
-  // Compute portfolio AUM
+  // 1. Calculate player cash-AUM total
   const portfolioAUM = useMemo(() => {
     if (!state) return 0;
+    
     let stocksValue = 0;
     Object.entries(state.player?.assets?.stocks || {}).forEach(([t, q]: any) => {
-      stocksValue += q * (state.markets?.[t]?.currentPrice || 0);
+      const price = state.markets?.[t]?.currentPrice || 0;
+      stocksValue += q * price;
     });
+
     let cryptoValue = 0;
     Object.entries(state.player?.assets?.crypto || {}).forEach(([t, q]: any) => {
-      cryptoValue += (q as number) * (state.cryptoChains?.[t]?.tokenPrice || 0);
+      const price = state.cryptoChains?.[t]?.tokenPrice || 0;
+      cryptoValue += (q as number) * price;
     });
+
     let bondsValue = 0;
     Object.entries(state.player?.assets?.bonds || {}).forEach(([t, q]: any) => {
       bondsValue += (q as number) * 1000;
     });
+
     let shortsValue = 0;
     Object.entries(state.shorts || {}).forEach(([t, item]: any) => {
       const currentPrice = state.markets?.[t]?.currentPrice || 0;
       shortsValue += item.qty * currentPrice;
     });
+
     return (state.player?.cash || 0) + stocksValue + cryptoValue + bondsValue - shortsValue;
   }, [state]);
 
-  // Format currency helper
   const formatCurrency = (val: number) => {
     if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
     if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
@@ -50,43 +65,45 @@ export function FeedOverlay({
     return `$${val.toLocaleString()}`;
   };
 
-  // Get active live value for Layer 3 data strip
-  const { gameStatValue, feedNameText } = useMemo(() => {
-    if (!state) {
-      return { gameStatValue: 'NOMINAL', feedNameText: 'STANDBY_CORE' };
-    }
+  // 2. Resolve live data readings for bottom 18px data strips per feed
+  const dataString = useMemo(() => {
+    if (!state) return feed.dataOverlay;
 
-    switch (feedId) {
-      case 'CERN':
-        return {
-          gameStatValue: `ENERGY: ${energySpikeValue.toFixed(2)} TeV`,
-          feedNameText: 'CERN_LHC_TELEMETRY',
-        };
-      case 'MRKTS':
-        return {
-          gameStatValue: `AUM: ${formatCurrency(portfolioAUM)}`,
-          feedNameText: 'SOVEREIGN_CDS_SPREADS',
-        };
-      case 'INTEL': {
-        const nations = Object.values(state.countries || {});
-        const maxStress = nations.length > 0 ? Math.max(...nations.map((c) => c.debtStress)) : 42.4;
-        return {
-          gameStatValue: `MAX_STRESS: ${maxStress.toFixed(1)}%`,
-          feedNameText: 'PALANTIR_GRAPH_NET',
-        };
+    switch (feed.id) {
+      case 'orbital': {
+        // Active Satellites Tracker
+        const sats = state.activeSatellitesCount ?? 4;
+        const target = state.satelliteTargetId || 'N/A';
+        return `ALT: 408 KM // SATS_CONNECTED: ${sats} // TARGET: ${target} // SPEED: 7.66 KM/S`;
       }
-      case 'ATMO':
-        return {
-          gameStatValue: `RAIN_INTENSITY: ${(state.weatherThreat || 15).toFixed(1)}%`,
-          feedNameText: 'BLACK_RAIN_METEOROLOGY',
-        };
+      case 'markets': {
+        // Cash returns or dynamic portfolio metrics
+        const formattingAUM = formatCurrency(portfolioAUM);
+        const cashValue = formatCurrency(state.player?.cash || 0);
+        return `AUM: ${formattingAUM} // LIQUID_CASH: ${cashValue} // BENCHMARK: +3.4%`;
+      }
+      case 'geopolitical': {
+        // Stress of sovereign regions
+        const nations = Object.values(state.countries || {});
+        const maxStress = nations.length > 0 ? Math.max(...nations.map(c => c.debtStress)) : 42.4;
+        const activeDefaults = nations.filter(c => c.debtStress > 80).length;
+        return `MAX_STRESS: ${maxStress.toFixed(1)}% // SEC_THREAT: ${activeDefaults} REGIONS // RISK: ELEVATED`;
+      }
+      case 'particle': {
+        // LHC particle collisions
+        if (colliderArmed) {
+          return `ENERGY: 16.0 TEV // CRITICAL SPIKE DISCHARGE // STATUS: COLLISION`;
+        }
+        const powerPrct = (((state.labPowerUsed || 50) / (state.labPowerMax || 100)) * 100).toFixed(0);
+        return `ENERGY: 13.6 TEV // BUNCHES: 2748 // LAB_REACTOR_POWER: ${powerPrct}%`;
+      }
       default:
-        return { gameStatValue: 'UNKNOWN', feedNameText: 'UNKNOWN_RECEPTOR' };
+        return feed.dataOverlay;
     }
-  }, [feedId, state, portfolioAUM, energySpikeValue]);
+  }, [feed.id, feed.dataOverlay, state, portfolioAUM, colliderArmed]);
 
-  // Color grade class name selection
-  const getColorGradeClass = () => {
+  // Color grade select
+  const colorGradeClass = () => {
     if (colorGrade === 'flood') return styles.gradeFlood;
     if (colorGrade === 'heat') return styles.gradeHeat;
     return styles.gradeDefault;
@@ -94,47 +111,73 @@ export function FeedOverlay({
 
   return (
     <>
-      {/* Layer 1: Horizontal Scanlines Overlay (restricted to videoArea via CSS) */}
-      <div className={styles.scanlines} />
+      {/* Layer 1: Scanlines Overlay (Clipped to cell boundary) */}
+      <div className={isFeedDegraded ? styles.degradedScanlines : styles.scanlines} />
 
-      {/* Layer 1b: Vertical degradation scanline mesh if weather is severe */}
-      {isFeedDegraded && <div className={styles.additionalScanlines} />}
+      {/* Layer 2: Amber color grade */}
+      <div className={`${styles.colorGrade} ${colorGradeClass()}`} />
 
-      {/* Layer 2: Four amber corner brackets (SVG layout) */}
-      <svg className={styles.brackets} width="100%" height="100%">
-        {/* Top-Left Bracket */}
-        <path d="M 12 24 L 12 12 L 24 12" fill="none" className={styles.bracketLine} />
-        {/* Top-Right Bracket */}
-        <path d="M calc(100% - 12) 24 L calc(100% - 12) 12 L calc(100% - 24) 12" fill="none" className={styles.bracketLine} />
-        {/* Bottom-Left Bracket */}
-        <path d="M 12 calc(100% - 24) L 12 calc(100% - 12) L 24 calc(100% - 12)" fill="none" className={styles.bracketLine} />
-        {/* Bottom-Right Bracket */}
-        <path d="M calc(100% - 12) calc(100% - 24) L calc(100% - 12) calc(100% - 12) L calc(100% - 24) calc(100% - 12)" fill="none" className={styles.bracketLine} />
+      {/* Layer 3: Corner brackets (SVG) */}
+      <svg className={styles.brackets} viewBox="0 0 100 100" preserveAspectRatio="none">
+        {/* Top-Left */}
+        <path d="M 4 8 L 4 4 L 8 4" fill="none" stroke="#FF6F00" strokeWidth="1.2" opacity="0.85" />
+        {/* Top-Right */}
+        <path d="M 96 8 L 96 4 L 92 4" fill="none" stroke="#FF6F00" strokeWidth="1.2" opacity="0.85" />
+        {/* Bottom-Left */}
+        <path d="M 4 92 L 4 96 L 8 96" fill="none" stroke="#FF6F00" strokeWidth="1.2" opacity="0.85" />
+        {/* Bottom-Right */}
+        <path d="M 96 92 L 96 96 L 92 96" fill="none" stroke="#FF6F00" strokeWidth="1.2" opacity="0.85" />
       </svg>
 
-      {/* Layer 3: Dynamic bottom data strip (last 22px of height) */}
-      <div className={styles.dataStrip}>
-        <div className={styles.dataStripSection}>
-          [{feedId}] // {feedNameText}
-        </div>
-        <div className={styles.dataStripSection}>
-          {gameStatValue}
-        </div>
-        <div>
-          TICK: {String(state?.currentTick ?? 1).padStart(5, '0')}
-        </div>
+      {/* Layer 4: Top-Left Feed Label */}
+      <div className={`${styles.cellLabel} ${feed.id === 'geopolitical' && sovereignDefault ? styles.cellLabelFlashing : ''}`}>
+        {feed.label}
       </div>
 
-      {/* Layer 4: Interactive Color Grade */}
-      <div className={`${styles.colorGrade} ${getColorGradeClass()}`} />
+      {/* Layer 5: LIVE Dot Status Overlay */}
+      <div className={styles.cellLiveIndicator}>
+        {isLiveActive ? (
+          <>
+            <div className={styles.cellLiveDot} />
+            <span>LIVE</span>
+          </>
+        ) : (
+          <span className={styles.cellOfflineText}>◈ ARCHIVE</span>
+        )}
+      </div>
 
-      {/* Layer 5: White noise flash signal damage overlay (invisible unless triggered) */}
+      {/* Layer 6: Dynamic Bottom Data Strip (18px) */}
+      <div className={`${styles.cellDataStrip} ${isFocused ? styles.cellDataStripFocused : ''}`}>
+        <span>{dataString}</span>
+        <span>TICK: {String(state?.currentTick ?? 1).padStart(5, '0')}</span>
+      </div>
+
+      {/* Layer 7: Event Alerts (Warning Badges) */}
+      {feed.id === 'orbital' && bunkerThreat && (
+        <div className={styles.cellThreatOverlay}>
+          THREAT_DETECTED // COGN_MUTATION
+        </div>
+      )}
+      
+      {feed.id === 'particle' && colliderArmed && (
+        <div className={styles.cellThreatOverlay}>
+          REACTOR_SPIKE // CRITICAL_DISCHARGE
+        </div>
+      )}
+
+      {feed.id === 'geopolitical' && sovereignDefault && (
+        <div className={styles.cellThreatOverlay} style={{ backgroundColor: '#ef4444' }}>
+          SOVEREIGN_CDS_ALERT // LIMIT_DOWN
+        </div>
+      )}
+
+      {/* Layer 8: Lightning Strike Noise Flash Overlay */}
       {isNoiseFlash && (
         <div
-          className="absolute inset-0 z-30 pointer-events-none opacity-20 bg-cover"
+          className="absolute inset-0 pointer-events-none opacity-[0.14] bg-cover z-30"
           style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0%200%20100%20100'%20xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter%20id='noise'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.95'%20numOctaves='3'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23noise)'/%3E%3C/svg%3E")`,
-            filter: 'contrast(400%) invert(1)'
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.90' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+            filter: 'contrast(300%) invert(1)',
           }}
         />
       )}
